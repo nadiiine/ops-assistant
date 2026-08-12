@@ -8,8 +8,8 @@ created yet.** Do not run `terraform apply`.
 
 | Area | Status |
 |------|--------|
-| Directory layout / variables / providers | Present (skeleton) |
-| VPC / subnets / IGW / routes | Pending |
+| Directory layout / variables / providers | Present |
+| VPC / public subnets / IGW / routes | **Implemented** (not applied yet) |
 | Security groups / IAM / EC2 | Pending |
 | kubeadm user-data scripts | Placeholders only (`exit 1`) |
 | Remote state backend | Pending |
@@ -128,17 +128,17 @@ infra/
 
 - Repository hygiene for Python caches
 - `infra/` skeleton and documentation
-- Variable surface for future networking/EC2
+- **AWS networking**: VPC, 2 public subnets (2 AZs), IGW, public route table
+- Variable surface for future EC2 / security groups
 - Placeholder kubeadm scripts
 
 **Pending (requires explicit approval)**
 
-- VPC, subnets, IGW, routes
 - Security groups and IAM
 - EC2 instances / optional ASG
 - Real bootstrap script contents
 - Remote state backend
-- `terraform plan` / `apply`
+- `terraform apply`
 - Staging environment folder
 - Agent/MCP/Docker/CI changes (not Phase 2)
 

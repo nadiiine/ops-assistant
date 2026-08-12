@@ -9,7 +9,7 @@ variable "environment" {
 }
 
 variable "aws_region" {
-  description = "AWS region (informational / for AZs lookup later)"
+  description = "AWS region (informational; provider is configured at the root)"
   type        = string
 }
 
@@ -18,27 +18,51 @@ variable "vpc_cidr" {
   type        = string
 }
 
+variable "public_subnet_cidrs" {
+  description = "CIDR blocks for public subnets (exactly two, one per AZ)"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.public_subnet_cidrs) == 2
+    error_message = "Exactly two public subnet CIDRs are required (one per Availability Zone)."
+  }
+}
+
+variable "map_public_ip_on_launch" {
+  description = "Assign a public IP to instances launched in the public subnets"
+  type        = bool
+  default     = true
+}
+
+# Reserved for later Phase 2 steps (EC2 / security groups). Declared so the root
+# module can pass a stable interface without implementing those resources yet.
+
 variable "instance_type" {
-  description = "EC2 instance type for control-plane and workers"
+  description = "EC2 instance type for control-plane and workers (unused until EC2 step)"
   type        = string
+  default     = "t3.medium"
 }
 
 variable "worker_count" {
-  description = "Number of worker EC2 instances (fixed count or ASG desired capacity)"
+  description = "Number of worker EC2 instances (unused until EC2 step)"
   type        = number
+  default     = 1
 }
 
 variable "key_name" {
-  description = "EC2 key pair name for SSH access"
+  description = "EC2 key pair name for SSH access (unused until EC2 step)"
   type        = string
+  default     = ""
 }
 
 variable "allowed_ssh_cidrs" {
-  description = "CIDRs allowed to SSH to nodes"
+  description = "CIDRs allowed to SSH to nodes (unused until security groups step)"
   type        = list(string)
+  default     = []
 }
 
 variable "allowed_api_cidrs" {
-  description = "CIDRs allowed to reach the Kubernetes API server (6443)"
+  description = "CIDRs allowed to reach the Kubernetes API (unused until security groups step)"
   type        = list(string)
+  default     = []
 }

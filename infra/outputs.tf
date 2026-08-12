@@ -1,17 +1,29 @@
-# Outputs will be populated once modules/k8s-cluster is implemented.
-#
-# Planned outputs (not active yet):
-#   - vpc_id
-#   - control_plane_public_ip
-#   - worker_public_ips / worker_asg_name
-#   - kubeconfig retrieval instructions (kubeadm-generated on the CP node)
+output "vpc_id" {
+  description = "ID of the VPC hosting the future kubeadm cluster"
+  value       = module.k8s_cluster.vpc_id
+}
 
-# output "vpc_id" {
-#   description = "ID of the VPC hosting the kubeadm cluster"
-#   value       = module.k8s_cluster.vpc_id
-# }
-#
-# output "control_plane_public_ip" {
-#   description = "Public IP of the kubeadm control-plane EC2 instance"
-#   value       = module.k8s_cluster.control_plane_public_ip
-# }
+output "public_subnet_ids" {
+  description = "IDs of the public subnets"
+  value       = module.k8s_cluster.public_subnet_ids
+}
+
+output "public_subnet_cidrs" {
+  description = "CIDR blocks of the public subnets"
+  value       = module.k8s_cluster.public_subnet_cidrs
+}
+
+output "public_subnet_azs" {
+  description = "Availability Zones of the public subnets"
+  value       = module.k8s_cluster.public_subnet_azs
+}
+
+output "internet_gateway_id" {
+  description = "ID of the Internet Gateway attached to the VPC"
+  value       = module.k8s_cluster.internet_gateway_id
+}
+
+output "public_route_table_id" {
+  description = "ID of the public route table"
+  value       = module.k8s_cluster.public_route_table_id
+}

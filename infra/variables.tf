@@ -17,25 +17,37 @@ variable "aws_region" {
 }
 
 variable "vpc_cidr" {
-  description = "CIDR block for the VPC (pending networking implementation)"
+  description = "CIDR block for the VPC"
   type        = string
   default     = "10.0.0.0/16"
 }
 
+variable "public_subnet_cidrs" {
+  description = "CIDR blocks for the two public subnets (different AZs)"
+  type        = list(string)
+  default     = ["10.0.0.0/24", "10.0.1.0/24"]
+}
+
+variable "map_public_ip_on_launch" {
+  description = "Assign a public IP to instances launched in public subnets"
+  type        = bool
+  default     = true
+}
+
 variable "instance_type" {
-  description = "EC2 instance type for control-plane and workers (pending)"
+  description = "EC2 instance type for control-plane and workers (pending EC2 step)"
   type        = string
   default     = "t3.medium"
 }
 
 variable "worker_count" {
-  description = "Number of worker EC2 instances (pending; ASG optional later)"
+  description = "Number of worker EC2 instances (pending EC2 step)"
   type        = number
   default     = 1
 }
 
 variable "key_name" {
-  description = "Existing EC2 key pair name for SSH (must exist in the account)"
+  description = "Existing EC2 key pair name for SSH (pending EC2 step)"
   type        = string
   default     = ""
 }
