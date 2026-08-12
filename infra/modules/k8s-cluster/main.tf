@@ -4,7 +4,8 @@
 #   - Networking: VPC, public subnets, IGW, routes
 #   - Security groups: control-plane + workers (see security_groups.tf)
 #   - IAM: control-plane + worker roles/instance profiles (see iam.tf)
-# Pending: EC2, kubeadm user-data.
+#   - EC2: control-plane instance + worker LT/ASG (see ec2.tf; no user_data yet)
+# Pending: kubeadm / Calico bootstrap via user-data.
 # Explicitly NOT in scope: EKS or any managed Kubernetes control plane.
 
 data "aws_availability_zones" "available" {

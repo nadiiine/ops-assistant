@@ -77,3 +77,38 @@ output "worker_instance_profile_arn" {
   description = "Instance profile ARN for worker EC2 instances"
   value       = aws_iam_instance_profile.workers.arn
 }
+
+output "ubuntu_ami_id" {
+  description = "Resolved Ubuntu AMI ID used for control-plane and workers"
+  value       = data.aws_ami.ubuntu.id
+}
+
+output "ubuntu_ami_name" {
+  description = "Resolved Ubuntu AMI name"
+  value       = data.aws_ami.ubuntu.name
+}
+
+output "control_plane_instance_id" {
+  description = "EC2 instance ID of the kubeadm control-plane node"
+  value       = aws_instance.control_plane.id
+}
+
+output "control_plane_private_ip" {
+  description = "Private IPv4 of the control-plane node"
+  value       = aws_instance.control_plane.private_ip
+}
+
+output "control_plane_public_ip" {
+  description = "Public IPv4 of the control-plane node (laptop kubectl/agent access)"
+  value       = aws_instance.control_plane.public_ip
+}
+
+output "worker_launch_template_id" {
+  description = "ID of the worker launch template"
+  value       = aws_launch_template.workers.id
+}
+
+output "worker_asg_name" {
+  description = "Name of the worker Auto Scaling Group"
+  value       = aws_autoscaling_group.workers.name
+}

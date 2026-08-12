@@ -1,5 +1,5 @@
 # Non-secret defaults for the dev environment.
-# Do not put AWS keys or private material here.
+# Do not put AWS keys or private key material here.
 
 project_name = "ops-assistant"
 environment  = "dev"
@@ -9,17 +9,22 @@ vpc_cidr                = "10.0.0.0/16"
 public_subnet_cidrs     = ["10.0.0.0/24", "10.0.1.0/24"]
 map_public_ip_on_launch = true
 
-# Security group CIDRs — set before EC2/SSH/API access is needed.
-# Example: ["203.0.113.10/32"]  (your public IP /32). Do NOT use 0.0.0.0/0.
-# Leave empty for now: SSH / external API / NodePort ingress rules are omitted.
+# Security group CIDRs — set before SSH/API from your laptop is needed.
+# Example: ["203.0.113.10/32"]  Do NOT use 0.0.0.0/0.
 allowed_ssh_cidrs      = []
 allowed_api_cidrs      = []
 allowed_nodeport_cidrs = []
 
-# Attach AmazonSSMManagedInstanceCore for Session Manager (set false for roles with zero AWS API perms).
 enable_ssm = true
 
-# Reserved for later Phase 2 steps (not used by networking/SGs/IAM yet):
-instance_type = "t3.medium"
-worker_count  = 1
-key_name      = ""
+# EC2 — Ubuntu 22.04 AMI resolved via data source (see ubuntu_ami_name_filter default).
+instance_type           = "t3.medium"
+worker_instance_type    = "" # empty = same as instance_type
+worker_min_size         = 1
+worker_max_size         = 2
+worker_desired_capacity = 1
+root_volume_size_gb     = 20
+
+# Optional SSH key pair name (must already exist in the account/region).
+# Leave empty to use SSM Session Manager only (recommended with enable_ssm = true).
+key_name = ""

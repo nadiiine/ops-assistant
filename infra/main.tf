@@ -1,5 +1,5 @@
 # Root module — wires the k8s-cluster module.
-# Current module scope: networking + security groups (no EC2/IAM yet).
+# Scope: networking + security groups + IAM + EC2 (no kubeadm user_data yet).
 
 module "k8s_cluster" {
   source = "./modules/k8s-cluster"
@@ -16,8 +16,12 @@ module "k8s_cluster" {
   allowed_nodeport_cidrs = var.allowed_nodeport_cidrs
   enable_ssm             = var.enable_ssm
 
-  # Passed through for a stable module interface; unused until EC2 step.
-  instance_type = var.instance_type
-  worker_count  = var.worker_count
-  key_name      = var.key_name
+  ubuntu_ami_name_filter  = var.ubuntu_ami_name_filter
+  instance_type           = var.instance_type
+  worker_instance_type    = var.worker_instance_type
+  worker_min_size         = var.worker_min_size
+  worker_max_size         = var.worker_max_size
+  worker_desired_capacity = var.worker_desired_capacity
+  root_volume_size_gb     = var.root_volume_size_gb
+  key_name                = var.key_name
 }

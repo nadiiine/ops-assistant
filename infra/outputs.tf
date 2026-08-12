@@ -67,3 +67,33 @@ output "worker_instance_profile_name" {
   description = "Instance profile name for worker EC2 instances"
   value       = module.k8s_cluster.worker_instance_profile_name
 }
+
+output "ubuntu_ami_id" {
+  description = "Resolved Ubuntu AMI ID used for nodes"
+  value       = module.k8s_cluster.ubuntu_ami_id
+}
+
+output "control_plane_instance_id" {
+  description = "EC2 instance ID of the control-plane node"
+  value       = module.k8s_cluster.control_plane_instance_id
+}
+
+output "control_plane_private_ip" {
+  description = "Private IPv4 of the control-plane node"
+  value       = module.k8s_cluster.control_plane_private_ip
+}
+
+output "control_plane_public_ip" {
+  description = "Public IPv4 of the control-plane node"
+  value       = module.k8s_cluster.control_plane_public_ip
+}
+
+output "worker_launch_template_id" {
+  description = "Worker launch template ID"
+  value       = module.k8s_cluster.worker_launch_template_id
+}
+
+output "worker_asg_name" {
+  description = "Worker Auto Scaling Group name"
+  value       = module.k8s_cluster.worker_asg_name
+}

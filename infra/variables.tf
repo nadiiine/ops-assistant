@@ -34,20 +34,50 @@ variable "map_public_ip_on_launch" {
   default     = true
 }
 
+variable "ubuntu_ami_name_filter" {
+  description = "AMI name filter for Canonical Ubuntu (amd64)"
+  type        = string
+  default     = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+}
+
 variable "instance_type" {
-  description = "EC2 instance type for control-plane and workers (pending EC2 step)"
+  description = "EC2 instance type for the control-plane node"
   type        = string
   default     = "t3.medium"
 }
 
-variable "worker_count" {
-  description = "Number of worker EC2 instances (pending EC2 step)"
+variable "worker_instance_type" {
+  description = "EC2 instance type for workers. Empty = use instance_type."
+  type        = string
+  default     = ""
+}
+
+variable "worker_min_size" {
+  description = "Worker ASG minimum size"
   type        = number
   default     = 1
 }
 
+variable "worker_max_size" {
+  description = "Worker ASG maximum size"
+  type        = number
+  default     = 2
+}
+
+variable "worker_desired_capacity" {
+  description = "Worker ASG desired capacity (Phase 2 default: 1)"
+  type        = number
+  default     = 1
+}
+
+variable "root_volume_size_gb" {
+  description = "Root EBS volume size (GiB)"
+  type        = number
+  default     = 20
+}
+
 variable "key_name" {
-  description = "Existing EC2 key pair name for SSH (pending EC2 step)"
+  description = "Optional existing EC2 key pair for SSH. Empty = SSM-only access."
   type        = string
   default     = ""
 }

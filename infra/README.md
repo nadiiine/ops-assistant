@@ -11,7 +11,8 @@ Do not run `terraform apply` until explicitly approved.
 | VPC / public subnets / IGW / routes | **Implemented** (not applied yet) |
 | Security groups (control-plane + workers) | **Implemented** (not applied yet) |
 | IAM roles / instance profiles | **Implemented** (not applied yet) |
-| EC2 | Pending |
+| EC2 control-plane + worker LT/ASG | **Implemented** (not applied yet; no user_data) |
+| kubeadm / Calico bootstrap | Pending |
 | kubeadm user-data scripts | Placeholders only (`exit 1`) |
 | Remote state backend | Pending |
 | Docker / CI / agent container | Out of scope (Phases 3–4) |
@@ -137,12 +138,23 @@ infra/
         ├── main.tf              # VPC, subnets, IGW, routes
         ├── security_groups.tf   # control-plane + worker SGs
         ├── iam.tf               # control-plane + worker roles/profiles
+        ├── ec2.tf               # control-plane instance + worker LT/ASG
         ├── variables.tf
         ├── outputs.tf
         └── scripts/
-            ├── control-plane.sh  # placeholder
-            └── worker.sh         # placeholder
+            ├── control-plane.sh  # placeholder (not wired as user_data yet)
+            └── worker.sh         # placeholder (not wired as user_data yet)
 ```
+
+## EC2 layout
+
+| Component | Resource | Notes |
+|-----------|----------|-------|
+| AMI | `data.aws_ami.ubuntu` | Canonical Ubuntu 22.04 Jammy amd64 (dynamic) |
+| Control-plane | `aws_instance` | Public subnet[0], CP SG, CP instance profile, public IP |
+| Workers | `aws_launch_template` + `aws_autoscaling_group` | Across both public subnets; desired=1 by default |
+| SSH key | optional `key_name` | Empty = SSM-only (recommended) |
+| user_data | **none yet** | kubeadm/Calico bootstrap is a later step |
 
 ## IAM design (nodes)
 
@@ -172,15 +184,15 @@ Toggle with `enable_ssm` in tfvars if you want empty roles (trust only).
 - **Security groups**: control-plane + workers (kubeadm ports; Calico VXLAN UDP/4789; CIDRs via tfvars)
 - **CNI decision**: Calico in **VXLAN** mode (not BGP, not IP-in-IP)
 - **IAM**: separate control-plane/worker roles + instance profiles; optional SSM core policy
-- Placeholder kubeadm scripts
+- **EC2**: 1 control-plane instance + worker launch template/ASG (no kubeadm user_data yet)
+- Placeholder kubeadm scripts (not attached)
 
 **Pending (requires explicit approval)**
 
-- EC2 instances / optional ASG
-- Real bootstrap script contents
+- Real bootstrap / user_data (`kubeadm init` / `join`, containerd, Calico VXLAN)
 - Remote state backend
 - `terraform apply`
-- Set `allowed_ssh_cidrs` / `allowed_api_cidrs` before needing SSH or laptop→API access
+- Set `allowed_api_cidrs` (and optionally `allowed_ssh_cidrs` / `key_name`) before laptop access
 - Staging environment folder
 - Agent/MCP/Docker/CI changes (not Phase 2)
 
