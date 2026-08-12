@@ -11,8 +11,9 @@ Do not run `terraform apply` until explicitly approved.
 | VPC / public subnets / IGW / routes | **Implemented** (not applied yet) |
 | Security groups (control-plane + workers) | **Implemented** (not applied yet) |
 | IAM roles / instance profiles | **Implemented** (not applied yet) |
-| EC2 control-plane + worker LT/ASG | **Implemented** (not applied yet; no user_data) |
-| kubeadm / Calico bootstrap | Pending |
+| EC2 control-plane + worker LT/ASG | **Implemented** (not applied yet) |
+| kubeadm / Calico VXLAN bootstrap user_data | **Implemented** (not applied yet) |
+| Live `terraform apply` | Pending approval |
 | kubeadm user-data scripts | Placeholders only (`exit 1`) |
 | Remote state backend | Pending |
 | Docker / CI / agent container | Out of scope (Phases 3–4) |
@@ -154,7 +155,33 @@ infra/
 | Control-plane | `aws_instance` | Public subnet[0], CP SG, CP instance profile, public IP |
 | Workers | `aws_launch_template` + `aws_autoscaling_group` | Across both public subnets; desired=1 by default |
 | SSH key | optional `key_name` | Empty = SSM-only (recommended) |
-| user_data | **none yet** | kubeadm/Calico bootstrap is a later step |
+| user_data | `scripts/control-plane.sh` / `worker.sh` | kubeadm + Calico VXLAN + SSM join |
+
+## Bootstrap / join flow
+
+```
+control-plane EC2 (user_data)
+  → install containerd (SystemdCgroup=true) + kubeadm/kubelet/kubectl
+  → kubeadm init (advertise = IMDS private IPv4)
+  → apply Calico VXLAN (pinned version)
+  → kubeadm token create --print-join-command
+  → SSM PutParameter SecureString  /ops-assistant/dev/k8s/worker-join-command
+  → systemd timer refreshes the parameter every 12h
+
+worker EC2 (ASG / user_data)
+  → same runtime + kube packages
+  → retry SSM GetParameter --with-decryption
+  → kubeadm join …
+  → skip if /etc/kubernetes/kubelet.conf already exists
+```
+
+**ASG replacement:** a new worker boots with the same LT user_data, reads the
+latest join command from SSM (kept fresh by the control-plane timer), and joins.
+
+**Runtime:** containerd (kubeadm default CRI). `SystemdCgroup = true` in
+`/etc/containerd/config.toml` so kubelet’s systemd cgroup driver matches.
+
+**Versions (defaults):** Kubernetes `1.31.4`, Calico `v3.29.1`, pod CIDR `192.168.0.0/16`.
 
 ## IAM design (nodes)
 
@@ -162,18 +189,15 @@ Separate roles for control-plane and workers, each with an EC2 instance profile.
 
 | Role | Trust | Attached policy (default) |
 |------|-------|---------------------------|
-| `ops-assistant-dev-control-plane` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (if `enable_ssm = true`) |
-| `ops-assistant-dev-workers` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (if `enable_ssm = true`) |
+| `ops-assistant-dev-control-plane` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (optional) + **inline** `ssm:PutParameter`/`GetParameter` on join param only |
+| `ops-assistant-dev-workers` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (optional) + **inline** `ssm:GetParameter` on join param only |
 
-**Why SSM:** Session Manager gives operational shell access without depending only on SSH
-CIDRs. The managed policy is narrowly scoped to the SSM agent.
+**SSM join parameter:** `/ops-assistant/dev/k8s/worker-join-command` (SecureString at runtime; not created by Terraform, so the token is not stored in TF state).
+
+**Why SSM:** AWS-native, encrypted SecureString, least-privilege IAM by parameter ARN, works for ASG replacements without baking tokens into AMIs/user_data.
 
 **Intentionally not attached:** EKS managed policies, ECR pull, cloud-provider-aws/CCM,
-S3, autoscaling, or AdministratorAccess — none are required for a basic kubeadm +
-Calico VXLAN cluster yet. IMDS (instance metadata) does not need IAM permissions.
-
-Toggle with `enable_ssm` in tfvars if you want empty roles (trust only).
-
+S3, autoscaling, or AdministratorAccess. IMDS does not need IAM permissions.
 ## Implemented now vs pending
 
 **Now**
@@ -184,15 +208,15 @@ Toggle with `enable_ssm` in tfvars if you want empty roles (trust only).
 - **Security groups**: control-plane + workers (kubeadm ports; Calico VXLAN UDP/4789; CIDRs via tfvars)
 - **CNI decision**: Calico in **VXLAN** mode (not BGP, not IP-in-IP)
 - **IAM**: separate control-plane/worker roles + instance profiles; optional SSM core policy
-- **EC2**: 1 control-plane instance + worker launch template/ASG (no kubeadm user_data yet)
-- Placeholder kubeadm scripts (not attached)
+- **EC2**: 1 control-plane instance + worker launch template/ASG
+- **Bootstrap**: kubeadm init/join user_data, Calico VXLAN, SSM join parameter
 
 **Pending (requires explicit approval)**
 
-- Real bootstrap / user_data (`kubeadm init` / `join`, containerd, Calico VXLAN)
-- Remote state backend
 - `terraform apply`
-- Set `allowed_api_cidrs` (and optionally `allowed_ssh_cidrs` / `key_name`) before laptop access
+- Set `allowed_api_cidrs` (laptop /32) so kubectl/agent can reach API :6443
+- Retrieve admin kubeconfig from the control-plane (SSM Session Manager)
+- Remote state backend
 - Staging environment folder
 - Agent/MCP/Docker/CI changes (not Phase 2)
 

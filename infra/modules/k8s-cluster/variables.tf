@@ -105,3 +105,39 @@ variable "key_name" {
   type        = string
   default     = ""
 }
+
+variable "kubernetes_version" {
+  description = "Kubernetes package version (kubeadm/kubelet/kubectl), e.g. 1.31.4"
+  type        = string
+  default     = "1.31.4"
+}
+
+variable "calico_version" {
+  description = "Calico manifest tag (VXLAN mode), e.g. v3.29.1"
+  type        = string
+  default     = "v3.29.1"
+}
+
+variable "pod_network_cidr" {
+  description = "Pod network CIDR passed to kubeadm init (must match Calico IP pool)"
+  type        = string
+  default     = "192.168.0.0/16"
+}
+
+variable "join_token_ttl" {
+  description = "TTL for kubeadm bootstrap tokens written to SSM (refreshed by CP timer)"
+  type        = string
+  default     = "24h0m0s"
+}
+
+variable "join_max_attempts" {
+  description = "Worker: max attempts to read SSM join parameter / run kubeadm join"
+  type        = number
+  default     = 36
+}
+
+variable "join_sleep_seconds" {
+  description = "Worker: sleep between join attempts (seconds)"
+  type        = number
+  default     = 20
+}

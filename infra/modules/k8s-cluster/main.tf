@@ -4,8 +4,8 @@
 #   - Networking: VPC, public subnets, IGW, routes
 #   - Security groups: control-plane + workers (see security_groups.tf)
 #   - IAM: control-plane + worker roles/instance profiles (see iam.tf)
-#   - EC2: control-plane instance + worker LT/ASG (see ec2.tf; no user_data yet)
-# Pending: kubeadm / Calico bootstrap via user-data.
+#   - EC2: control-plane instance + worker LT/ASG with kubeadm user_data (see ec2.tf)
+# Pending: first terraform apply + validation on live AWS.
 # Explicitly NOT in scope: EKS or any managed Kubernetes control plane.
 
 data "aws_availability_zones" "available" {
@@ -17,6 +17,20 @@ locals {
 
   # Use the first two AZs in the region (stable enough for a two-subnet design).
   azs = slice(data.aws_availability_zones.available.names, 0, 2)
+
+  # Exact SSM parameter path for the kubeadm join command (SecureString at runtime).
+  ssm_join_parameter_name = "/${var.project_name}/${var.environment}/k8s/worker-join-command"
+
+  bootstrap_template_vars = {
+    aws_region              = var.aws_region
+    ssm_join_parameter_name = local.ssm_join_parameter_name
+    kubernetes_version      = var.kubernetes_version
+    calico_version          = var.calico_version
+    pod_network_cidr        = var.pod_network_cidr
+    join_token_ttl          = var.join_token_ttl
+    join_max_attempts       = var.join_max_attempts
+    join_sleep_seconds      = var.join_sleep_seconds
+  }
 
   common_tags = {
     Project     = var.project_name

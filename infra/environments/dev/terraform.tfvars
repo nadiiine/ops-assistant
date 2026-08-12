@@ -28,3 +28,11 @@ root_volume_size_gb     = 20
 # Optional SSH key pair name (must already exist in the account/region).
 # Leave empty to use SSM Session Manager only (recommended with enable_ssm = true).
 key_name = ""
+
+# Kubernetes bootstrap pins
+kubernetes_version = "1.31.4"
+calico_version     = "v3.29.1"
+pod_network_cidr   = "192.168.0.0/16"
+join_token_ttl     = "24h0m0s"
+join_max_attempts  = 36
+join_sleep_seconds = 20

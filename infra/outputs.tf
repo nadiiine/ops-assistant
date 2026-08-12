@@ -97,3 +97,8 @@ output "worker_asg_name" {
   description = "Worker Auto Scaling Group name"
   value       = module.k8s_cluster.worker_asg_name
 }
+
+output "ssm_join_parameter_name" {
+  description = "SSM parameter holding the kubeadm join command"
+  value       = module.k8s_cluster.ssm_join_parameter_name
+}

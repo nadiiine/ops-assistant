@@ -1,10 +1,8 @@
 # EC2 for self-managed kubeadm nodes.
 #
-# - Control-plane: single aws_instance (no user_data / kubeadm yet)
-# - Workers: launch template + Auto Scaling Group (no user_data / kubeadm yet)
-#
-# SSH key_name is optional: SSM Session Manager is the primary access path when
-# enable_ssm = true. Set key_name only if you also configure allowed_ssh_cidrs.
+# - Control-plane: aws_instance + user_data (control-plane.sh)
+# - Workers: launch template + ASG + user_data (worker.sh)
+# Join coordination: SSM Parameter Store SecureString (see iam.tf + scripts).
 
 ################################################################################
 # Ubuntu AMI (Canonical) — resolved dynamically; not hardcoded
@@ -37,8 +35,10 @@ data "aws_ami" "ubuntu" {
 
 locals {
   worker_instance_type = var.worker_instance_type != "" ? var.worker_instance_type : var.instance_type
-  # Empty string means "no EC2 key pair" (SSM-only access).
-  key_name_effective = var.key_name != "" ? var.key_name : null
+  key_name_effective   = var.key_name != "" ? var.key_name : null
+
+  control_plane_user_data = templatefile("${path.module}/scripts/control-plane.sh", local.bootstrap_template_vars)
+  worker_user_data        = templatefile("${path.module}/scripts/worker.sh", local.bootstrap_template_vars)
 }
 
 ################################################################################
@@ -54,8 +54,8 @@ resource "aws_instance" "control_plane" {
   associate_public_ip_address = true
   key_name                    = local.key_name_effective
 
-  # Intentionally empty — kubeadm bootstrap comes in a later step.
-  user_data = null
+  user_data                   = local.control_plane_user_data
+  user_data_replace_on_change = true
 
   metadata_options {
     http_endpoint               = "enabled"
@@ -73,6 +73,11 @@ resource "aws_instance" "control_plane" {
     Name = "${local.name_prefix}-control-plane"
     Role = "control-plane"
   })
+
+  depends_on = [
+    aws_iam_role_policy.control_plane_join_ssm,
+    aws_internet_gateway.this,
+  ]
 }
 
 ################################################################################
@@ -85,8 +90,7 @@ resource "aws_launch_template" "workers" {
   instance_type = local.worker_instance_type
   key_name      = local.key_name_effective
 
-  # Intentionally empty — kubeadm join comes in a later step.
-  user_data = null
+  user_data = base64encode(local.worker_user_data)
 
   iam_instance_profile {
     name = aws_iam_instance_profile.workers.name
@@ -139,6 +143,10 @@ resource "aws_launch_template" "workers" {
   lifecycle {
     create_before_destroy = true
   }
+
+  depends_on = [
+    aws_iam_role_policy.workers_join_ssm,
+  ]
 }
 
 resource "aws_autoscaling_group" "workers" {
@@ -149,7 +157,7 @@ resource "aws_autoscaling_group" "workers" {
   desired_capacity    = var.worker_desired_capacity
 
   health_check_type         = "EC2"
-  health_check_grace_period = 60
+  health_check_grace_period = 900
 
   launch_template {
     id      = aws_launch_template.workers.id
@@ -195,4 +203,8 @@ resource "aws_autoscaling_group" "workers" {
   lifecycle {
     create_before_destroy = true
   }
+
+  depends_on = [
+    aws_instance.control_plane,
+  ]
 }

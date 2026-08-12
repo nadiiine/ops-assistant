@@ -105,3 +105,39 @@ variable "enable_ssm" {
   type        = bool
   default     = true
 }
+
+variable "kubernetes_version" {
+  description = "Kubernetes package version (kubeadm/kubelet/kubectl)"
+  type        = string
+  default     = "1.31.4"
+}
+
+variable "calico_version" {
+  description = "Calico release tag for VXLAN manifests"
+  type        = string
+  default     = "v3.29.1"
+}
+
+variable "pod_network_cidr" {
+  description = "Pod CIDR for kubeadm init / Calico"
+  type        = string
+  default     = "192.168.0.0/16"
+}
+
+variable "join_token_ttl" {
+  description = "TTL for kubeadm tokens stored in SSM"
+  type        = string
+  default     = "24h0m0s"
+}
+
+variable "join_max_attempts" {
+  description = "Worker join retry attempts"
+  type        = number
+  default     = 36
+}
+
+variable "join_sleep_seconds" {
+  description = "Seconds between worker join retries"
+  type        = number
+  default     = 20
+}

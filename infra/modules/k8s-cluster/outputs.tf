@@ -112,3 +112,8 @@ output "worker_asg_name" {
   description = "Name of the worker Auto Scaling Group"
   value       = aws_autoscaling_group.workers.name
 }
+
+output "ssm_join_parameter_name" {
+  description = "SSM Parameter Store name for the kubeadm worker join command"
+  value       = local.ssm_join_parameter_name
+}

@@ -1,5 +1,5 @@
 # Root module — wires the k8s-cluster module.
-# Scope: networking + security groups + IAM + EC2 (no kubeadm user_data yet).
+# Scope: networking + SGs + IAM + EC2 + kubeadm/Calico bootstrap user_data.
 
 module "k8s_cluster" {
   source = "./modules/k8s-cluster"
@@ -24,4 +24,11 @@ module "k8s_cluster" {
   worker_desired_capacity = var.worker_desired_capacity
   root_volume_size_gb     = var.root_volume_size_gb
   key_name                = var.key_name
+
+  kubernetes_version = var.kubernetes_version
+  calico_version     = var.calico_version
+  pod_network_cidr   = var.pod_network_cidr
+  join_token_ttl     = var.join_token_ttl
+  join_max_attempts  = var.join_max_attempts
+  join_sleep_seconds = var.join_sleep_seconds
 }
