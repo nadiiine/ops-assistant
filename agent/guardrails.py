@@ -7,23 +7,15 @@ from typing import Any
 # Read-only and safe mutation tools allowed in Phase 1.
 ALLOWED_TOOLS: frozenset[str] = frozenset(
     {
-        "ping",
-        "kubectl_get",
-        "kubectl_describe",
-        "kubectl_logs",
-        "explain_resource",
-        "list_api_resources",
-        "kubectl_context",
-        "kubectl_scale",
-        "kubectl_apply",
-        "kubectl_create",
-        "kubectl_patch",
-        "kubectl_rollout",
-        "port_forward",
-        "stop_port_forward",
-        "install_helm_chart",
-        "upgrade_helm_chart",
-        "helm_template_apply",
+       "ping",
+       "kubectl_get",
+       "kubectl_describe",
+       "kubectl_logs",
+       "explain_resource",
+       "list_api_resources",
+       "kubectl_context",
+       "kubectl_scale",
+        
     }
 )
 
