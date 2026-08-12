@@ -37,3 +37,43 @@ output "worker_security_group_id" {
   description = "Security group ID for kubeadm worker nodes"
   value       = aws_security_group.workers.id
 }
+
+output "control_plane_iam_role_name" {
+  description = "IAM role name for the control-plane EC2 instance"
+  value       = aws_iam_role.control_plane.name
+}
+
+output "control_plane_iam_role_arn" {
+  description = "IAM role ARN for the control-plane EC2 instance"
+  value       = aws_iam_role.control_plane.arn
+}
+
+output "control_plane_instance_profile_name" {
+  description = "Instance profile name for the control-plane EC2 instance"
+  value       = aws_iam_instance_profile.control_plane.name
+}
+
+output "control_plane_instance_profile_arn" {
+  description = "Instance profile ARN for the control-plane EC2 instance"
+  value       = aws_iam_instance_profile.control_plane.arn
+}
+
+output "worker_iam_role_name" {
+  description = "IAM role name for worker EC2 instances"
+  value       = aws_iam_role.workers.name
+}
+
+output "worker_iam_role_arn" {
+  description = "IAM role ARN for worker EC2 instances"
+  value       = aws_iam_role.workers.arn
+}
+
+output "worker_instance_profile_name" {
+  description = "Instance profile name for worker EC2 instances"
+  value       = aws_iam_instance_profile.workers.name
+}
+
+output "worker_instance_profile_arn" {
+  description = "Instance profile ARN for worker EC2 instances"
+  value       = aws_iam_instance_profile.workers.arn
+}

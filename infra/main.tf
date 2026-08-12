@@ -14,6 +14,7 @@ module "k8s_cluster" {
   allowed_ssh_cidrs      = var.allowed_ssh_cidrs
   allowed_api_cidrs      = var.allowed_api_cidrs
   allowed_nodeport_cidrs = var.allowed_nodeport_cidrs
+  enable_ssm             = var.enable_ssm
 
   # Passed through for a stable module interface; unused until EC2 step.
   instance_type = var.instance_type

@@ -3,7 +3,8 @@
 # Current scope:
 #   - Networking: VPC, public subnets, IGW, routes
 #   - Security groups: control-plane + workers (see security_groups.tf)
-# Pending: IAM, EC2, kubeadm user-data.
+#   - IAM: control-plane + worker roles/instance profiles (see iam.tf)
+# Pending: EC2, kubeadm user-data.
 # Explicitly NOT in scope: EKS or any managed Kubernetes control plane.
 
 data "aws_availability_zones" "available" {

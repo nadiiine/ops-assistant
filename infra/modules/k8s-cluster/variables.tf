@@ -52,6 +52,12 @@ variable "allowed_nodeport_cidrs" {
   default     = []
 }
 
+variable "enable_ssm" {
+  description = "Attach AmazonSSMManagedInstanceCore to node roles for Session Manager (no SSH required)."
+  type        = bool
+  default     = true
+}
+
 # Reserved for later Phase 2 steps (EC2). Kept for a stable root→module interface.
 
 variable "instance_type" {

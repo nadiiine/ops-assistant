@@ -69,3 +69,9 @@ variable "allowed_nodeport_cidrs" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_ssm" {
+  description = "Attach AmazonSSMManagedInstanceCore to node IAM roles for Session Manager"
+  type        = bool
+  default     = true
+}

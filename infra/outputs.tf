@@ -37,3 +37,33 @@ output "worker_security_group_id" {
   description = "Security group ID for kubeadm worker nodes"
   value       = module.k8s_cluster.worker_security_group_id
 }
+
+output "control_plane_iam_role_name" {
+  description = "IAM role name for the control-plane EC2 instance"
+  value       = module.k8s_cluster.control_plane_iam_role_name
+}
+
+output "control_plane_iam_role_arn" {
+  description = "IAM role ARN for the control-plane EC2 instance"
+  value       = module.k8s_cluster.control_plane_iam_role_arn
+}
+
+output "control_plane_instance_profile_name" {
+  description = "Instance profile name for the control-plane EC2 instance"
+  value       = module.k8s_cluster.control_plane_instance_profile_name
+}
+
+output "worker_iam_role_name" {
+  description = "IAM role name for worker EC2 instances"
+  value       = module.k8s_cluster.worker_iam_role_name
+}
+
+output "worker_iam_role_arn" {
+  description = "IAM role ARN for worker EC2 instances"
+  value       = module.k8s_cluster.worker_iam_role_arn
+}
+
+output "worker_instance_profile_name" {
+  description = "Instance profile name for worker EC2 instances"
+  value       = module.k8s_cluster.worker_instance_profile_name
+}

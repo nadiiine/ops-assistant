@@ -16,7 +16,10 @@ allowed_ssh_cidrs      = []
 allowed_api_cidrs      = []
 allowed_nodeport_cidrs = []
 
-# Reserved for later Phase 2 steps (not used by networking/SGs yet):
+# Attach AmazonSSMManagedInstanceCore for Session Manager (set false for roles with zero AWS API perms).
+enable_ssm = true
+
+# Reserved for later Phase 2 steps (not used by networking/SGs/IAM yet):
 instance_type = "t3.medium"
 worker_count  = 1
 key_name      = ""

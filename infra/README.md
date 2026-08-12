@@ -10,7 +10,8 @@ Do not run `terraform apply` until explicitly approved.
 | Directory layout / variables / providers | Present |
 | VPC / public subnets / IGW / routes | **Implemented** (not applied yet) |
 | Security groups (control-plane + workers) | **Implemented** (not applied yet) |
-| IAM / EC2 | Pending |
+| IAM roles / instance profiles | **Implemented** (not applied yet) |
+| EC2 | Pending |
 | kubeadm user-data scripts | Placeholders only (`exit 1`) |
 | Remote state backend | Pending |
 | Docker / CI / agent container | Out of scope (Phases 3–4) |
@@ -135,12 +136,31 @@ infra/
     └── k8s-cluster/
         ├── main.tf              # VPC, subnets, IGW, routes
         ├── security_groups.tf   # control-plane + worker SGs
+        ├── iam.tf               # control-plane + worker roles/profiles
         ├── variables.tf
         ├── outputs.tf
         └── scripts/
             ├── control-plane.sh  # placeholder
             └── worker.sh         # placeholder
 ```
+
+## IAM design (nodes)
+
+Separate roles for control-plane and workers, each with an EC2 instance profile.
+
+| Role | Trust | Attached policy (default) |
+|------|-------|---------------------------|
+| `ops-assistant-dev-control-plane` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (if `enable_ssm = true`) |
+| `ops-assistant-dev-workers` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (if `enable_ssm = true`) |
+
+**Why SSM:** Session Manager gives operational shell access without depending only on SSH
+CIDRs. The managed policy is narrowly scoped to the SSM agent.
+
+**Intentionally not attached:** EKS managed policies, ECR pull, cloud-provider-aws/CCM,
+S3, autoscaling, or AdministratorAccess — none are required for a basic kubeadm +
+Calico VXLAN cluster yet. IMDS (instance metadata) does not need IAM permissions.
+
+Toggle with `enable_ssm` in tfvars if you want empty roles (trust only).
 
 ## Implemented now vs pending
 
@@ -151,12 +171,11 @@ infra/
 - **AWS networking**: VPC, 2 public subnets (2 AZs), IGW, public route table
 - **Security groups**: control-plane + workers (kubeadm ports; Calico VXLAN UDP/4789; CIDRs via tfvars)
 - **CNI decision**: Calico in **VXLAN** mode (not BGP, not IP-in-IP)
-- Variable surface for future EC2
+- **IAM**: separate control-plane/worker roles + instance profiles; optional SSM core policy
 - Placeholder kubeadm scripts
 
 **Pending (requires explicit approval)**
 
-- IAM roles / instance profiles
 - EC2 instances / optional ASG
 - Real bootstrap script contents
 - Remote state backend
@@ -168,6 +187,7 @@ infra/
 Optional later hardening (not blocking):
 
 - Narrow egress from `0.0.0.0/0` once package/registry sources are known
+- Add IAM only when features need it (ECR, AWS cloud-provider/CCM, etc.)
 - Revisit VXLAN rules if Calico is switched to BGP or IP-in-IP (would need different ports)
 
 ## Prerequisites (for a future apply)
