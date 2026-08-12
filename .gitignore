@@ -3,5 +3,33 @@
 !.env.example
 agent/kind-kubeconfig
 kind-kubeconfig
+agent/aws-kubeconfig
+agent/cloud-kubeconfig
 agent/.venv/
 tools/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Terraform (Phase 2+)
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+*.tfvars.local
+
