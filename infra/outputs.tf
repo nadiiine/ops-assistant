@@ -27,3 +27,13 @@ output "public_route_table_id" {
   description = "ID of the public route table"
   value       = module.k8s_cluster.public_route_table_id
 }
+
+output "control_plane_security_group_id" {
+  description = "Security group ID for the kubeadm control-plane node"
+  value       = module.k8s_cluster.control_plane_security_group_id
+}
+
+output "worker_security_group_id" {
+  description = "Security group ID for kubeadm worker nodes"
+  value       = module.k8s_cluster.worker_security_group_id
+}

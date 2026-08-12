@@ -53,13 +53,19 @@ variable "key_name" {
 }
 
 variable "allowed_ssh_cidrs" {
-  description = "CIDRs allowed to SSH to nodes (pending security groups)"
+  description = "CIDRs allowed to SSH (TCP/22) to nodes. Empty = no SSH ingress rules."
   type        = list(string)
   default     = []
 }
 
 variable "allowed_api_cidrs" {
-  description = "CIDRs allowed to reach the Kubernetes API (port 6443)"
+  description = "CIDRs allowed to reach Kubernetes API (TCP/6443). Empty = no external API ingress."
+  type        = list(string)
+  default     = []
+}
+
+variable "allowed_nodeport_cidrs" {
+  description = "CIDRs allowed to reach NodePort Services (TCP/30000-32767). Empty = no external NodePort ingress."
   type        = list(string)
   default     = []
 }

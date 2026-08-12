@@ -34,8 +34,25 @@ variable "map_public_ip_on_launch" {
   default     = true
 }
 
-# Reserved for later Phase 2 steps (EC2 / security groups). Declared so the root
-# module can pass a stable interface without implementing those resources yet.
+variable "allowed_ssh_cidrs" {
+  description = "CIDRs allowed to SSH (TCP/22) to control-plane and worker nodes. Empty = no SSH ingress."
+  type        = list(string)
+  default     = []
+}
+
+variable "allowed_api_cidrs" {
+  description = "CIDRs allowed to reach the Kubernetes API (TCP/6443) on the control-plane. Empty = no external API ingress (workers still allowed via SG)."
+  type        = list(string)
+  default     = []
+}
+
+variable "allowed_nodeport_cidrs" {
+  description = "CIDRs allowed to reach NodePort Services (TCP/30000-32767) on workers. Empty = no external NodePort ingress."
+  type        = list(string)
+  default     = []
+}
+
+# Reserved for later Phase 2 steps (EC2). Kept for a stable root→module interface.
 
 variable "instance_type" {
   description = "EC2 instance type for control-plane and workers (unused until EC2 step)"
@@ -53,16 +70,4 @@ variable "key_name" {
   description = "EC2 key pair name for SSH access (unused until EC2 step)"
   type        = string
   default     = ""
-}
-
-variable "allowed_ssh_cidrs" {
-  description = "CIDRs allowed to SSH to nodes (unused until security groups step)"
-  type        = list(string)
-  default     = []
-}
-
-variable "allowed_api_cidrs" {
-  description = "CIDRs allowed to reach the Kubernetes API (unused until security groups step)"
-  type        = list(string)
-  default     = []
 }

@@ -2,15 +2,15 @@
 
 ## Status
 
-**Skeleton only.** Terraform files and bootstrap script placeholders exist so the
-repository layout matches the Phase 2 plan. **No AWS resources are defined or
-created yet.** Do not run `terraform apply`.
+**Networking + security groups implemented in code; nothing applied to AWS yet.**
+Do not run `terraform apply` until explicitly approved.
 
 | Area | Status |
 |------|--------|
 | Directory layout / variables / providers | Present |
 | VPC / public subnets / IGW / routes | **Implemented** (not applied yet) |
-| Security groups / IAM / EC2 | Pending |
+| Security groups (control-plane + workers) | **Implemented** (not applied yet) |
+| IAM / EC2 | Pending |
 | kubeadm user-data scripts | Placeholders only (`exit 1`) |
 | Remote state backend | Pending |
 | Docker / CI / agent container | Out of scope (Phases 3–4) |
@@ -61,10 +61,29 @@ Terraform will **not** create an EKS cluster.
 
 | Script | Role |
 |--------|------|
-| `modules/k8s-cluster/scripts/control-plane.sh` | container runtime, kubeadm/kubelet, `kubeadm init`, CNI, admin kubeconfig |
+| `modules/k8s-cluster/scripts/control-plane.sh` | container runtime, kubeadm/kubelet, `kubeadm init`, **Calico VXLAN**, admin kubeconfig |
 | `modules/k8s-cluster/scripts/worker.sh` | runtime + kubeadm, `kubeadm join` |
 
 These scripts are **placeholders** today and must not be attached as user-data yet.
+
+## CNI decision: Calico VXLAN
+
+This cluster will use **Calico** as the Kubernetes CNI, in **VXLAN** encapsulation mode
+(not BGP peering, not IP-in-IP).
+
+| Item | Choice |
+|------|--------|
+| CNI | Calico |
+| Dataplane / encapsulation | VXLAN |
+| Node overlay port | **UDP 4789** (SG-to-SG between control-plane and workers only) |
+| BGP TCP 179 | **Not opened** (not required for VXLAN mode) |
+| IP-in-IP (protocol 4) | **Not opened** (not required for VXLAN mode) |
+
+Security groups no longer allow “all protocols” between nodes for CNI. Overlay traffic
+is limited to UDP/4789 via security-group references. Kubernetes control-plane ports
+(API 6443, etcd, kubelet, scheduler, controller-manager) remain as dedicated rules.
+
+Bootstrap scripts will install Calico in VXLAN mode later; they are still placeholders.
 
 ## Control-plane / worker layout
 
@@ -114,7 +133,8 @@ infra/
 │       └── terraform.tfvars
 └── modules/
     └── k8s-cluster/
-        ├── main.tf           # no aws_* resources yet
+        ├── main.tf              # VPC, subnets, IGW, routes
+        ├── security_groups.tf   # control-plane + worker SGs
         ├── variables.tf
         ├── outputs.tf
         └── scripts/
@@ -129,18 +149,26 @@ infra/
 - Repository hygiene for Python caches
 - `infra/` skeleton and documentation
 - **AWS networking**: VPC, 2 public subnets (2 AZs), IGW, public route table
-- Variable surface for future EC2 / security groups
+- **Security groups**: control-plane + workers (kubeadm ports; Calico VXLAN UDP/4789; CIDRs via tfvars)
+- **CNI decision**: Calico in **VXLAN** mode (not BGP, not IP-in-IP)
+- Variable surface for future EC2
 - Placeholder kubeadm scripts
 
 **Pending (requires explicit approval)**
 
-- Security groups and IAM
+- IAM roles / instance profiles
 - EC2 instances / optional ASG
 - Real bootstrap script contents
 - Remote state backend
 - `terraform apply`
+- Set `allowed_ssh_cidrs` / `allowed_api_cidrs` before needing SSH or laptop→API access
 - Staging environment folder
 - Agent/MCP/Docker/CI changes (not Phase 2)
+
+Optional later hardening (not blocking):
+
+- Narrow egress from `0.0.0.0/0` once package/registry sources are known
+- Revisit VXLAN rules if Calico is switched to BGP or IP-in-IP (would need different ports)
 
 ## Prerequisites (for a future apply)
 

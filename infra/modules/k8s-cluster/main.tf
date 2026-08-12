@@ -1,7 +1,9 @@
 # Reusable kubeadm-on-EC2 cluster module.
 #
-# Current scope: AWS networking only (VPC, public subnets, IGW, routes).
-# Pending (not in this change): security groups, IAM, EC2, kubeadm user-data.
+# Current scope:
+#   - Networking: VPC, public subnets, IGW, routes
+#   - Security groups: control-plane + workers (see security_groups.tf)
+# Pending: IAM, EC2, kubeadm user-data.
 # Explicitly NOT in scope: EKS or any managed Kubernetes control plane.
 
 data "aws_availability_zones" "available" {

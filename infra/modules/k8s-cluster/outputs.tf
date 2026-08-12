@@ -27,3 +27,13 @@ output "public_route_table_id" {
   description = "ID of the public route table (0.0.0.0/0 → IGW)"
   value       = aws_route_table.public.id
 }
+
+output "control_plane_security_group_id" {
+  description = "Security group ID for the kubeadm control-plane node"
+  value       = aws_security_group.control_plane.id
+}
+
+output "worker_security_group_id" {
+  description = "Security group ID for kubeadm worker nodes"
+  value       = aws_security_group.workers.id
+}
