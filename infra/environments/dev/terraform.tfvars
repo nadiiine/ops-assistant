@@ -12,7 +12,7 @@ map_public_ip_on_launch = true
 # Security group CIDRs — set before SSH/API from your laptop is needed.
 # Example: ["203.0.113.10/32"]  Do NOT use 0.0.0.0/0.
 allowed_ssh_cidrs      = []
-allowed_api_cidrs      = []
+allowed_api_cidrs      = ["79.177.159.83/32"]
 allowed_nodeport_cidrs = []
 
 enable_ssm = true

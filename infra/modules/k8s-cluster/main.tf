@@ -21,10 +21,16 @@ locals {
   # Exact SSM parameter path for the kubeadm join command (SecureString at runtime).
   ssm_join_parameter_name = "/${var.project_name}/${var.environment}/k8s/worker-join-command"
 
+  # Strip the patch segment once in Terraform (e.g. "1.31.4" -> "1.31").
+  # This avoids mixing bash command substitution with templatefile escaping in the
+  # Kubernetes repo URL construction.
+  k8s_major_minor = join(".", slice(split(".", var.kubernetes_version), 0, 2))
+
   bootstrap_template_vars = {
     aws_region              = var.aws_region
     ssm_join_parameter_name = local.ssm_join_parameter_name
     kubernetes_version      = var.kubernetes_version
+    k8s_major_minor         = local.k8s_major_minor
     calico_version          = var.calico_version
     pod_network_cidr        = var.pod_network_cidr
     join_token_ttl          = var.join_token_ttl

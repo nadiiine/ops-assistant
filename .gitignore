@@ -5,6 +5,7 @@ agent/kind-kubeconfig
 kind-kubeconfig
 agent/aws-kubeconfig
 agent/cloud-kubeconfig
+.kube/
 agent/.venv/
 tools/
 

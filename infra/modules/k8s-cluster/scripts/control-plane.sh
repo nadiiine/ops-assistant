@@ -4,11 +4,13 @@
 # and publishes a fresh join command to SSM Parameter Store (SecureString).
 #
 # Terraform interpolations use dollar-brace names (aws_region, etc.).
-# Bash expansions are written as dollar-dollar-brace so templatefile emits a single dollar.
+# Escape bash parameter expansion with double-dollar-brace so templatefile emits
+# a literal bash variable reference.
+# Normal bash command and arithmetic substitution should stay unescaped.
 set -euo pipefail
 
 exec > >(tee -a /var/log/k8s-bootstrap.log) 2>&1
-echo "==== control-plane bootstrap start $$(date -u +%Y-%m-%dT%H:%M:%SZ) ===="
+echo "==== control-plane bootstrap start $(date -u +%Y-%m-%dT%H:%M:%SZ) ===="
 
 readonly AWS_REGION='${aws_region}'
 readonly SSM_JOIN_PARAM='${ssm_join_parameter_name}'
@@ -61,8 +63,10 @@ install_containerd() {
 }
 
 install_kubernetes() {
-  local major_minor
-  major_minor="$$(echo "$${K8S_VERSION}" | cut -d. -f1,2)"
+  # k8s_major_minor is rendered by Terraform templatefile (e.g. "1.31").
+  # Keep the repo version prefix as a Terraform-provided value so the final script
+  # can use normal bash expansion without mixing in command substitution here.
+  local major_minor="${k8s_major_minor}"
 
   install -m 0755 -d /etc/apt/keyrings
   curl -fsSL "https://pkgs.k8s.io/core:/stable:/v$${major_minor}/deb/Release.key" \
@@ -91,7 +95,7 @@ install_awscli() {
 
 private_ipv4() {
   local token
-  token="$$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" \
+  token="$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" \
     -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")"
   curl -fsS -H "X-aws-ec2-metadata-token: $${token}" \
     http://169.254.169.254/latest/meta-data/local-ipv4
@@ -112,7 +116,7 @@ configure_admin_kubeconfig() {
 
 publish_join_command() {
   local join_cmd
-  join_cmd="$$(kubeadm token create --ttl "$${JOIN_TOKEN_TTL}" --print-join-command)"
+  join_cmd="$(kubeadm token create --ttl "$${JOIN_TOKEN_TTL}" --print-join-command)"
   aws ssm put-parameter \
     --region "$${AWS_REGION}" \
     --name "$${SSM_JOIN_PARAM}" \
@@ -172,6 +176,16 @@ install_calico_vxlan() {
     "$${manifest}"
 
   kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f "$${manifest}"
+  cat >/tmp/calico-bgpconfiguration.yaml <<'EOF'
+apiVersion: crd.projectcalico.org/v1
+kind: BGPConfiguration
+metadata:
+  name: default
+spec:
+  nodeToNodeMeshEnabled: false
+  asNumber: 64512
+EOF
+  kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f /tmp/calico-bgpconfiguration.yaml
   log "Applied Calico $${CALICO_VERSION} (VXLAN Always, IPIP Never)"
 }
 
@@ -184,7 +198,7 @@ run_kubeadm_init() {
   fi
 
   local advertise
-  advertise="$$(private_ipv4)"
+  advertise="$(private_ipv4)"
   log "kubeadm init apiserver-advertise-address=$${advertise} pod-network-cidr=$${POD_CIDR}"
 
   kubeadm init \
@@ -212,7 +226,7 @@ main() {
   install_awscli
   run_kubeadm_init
   touch /var/lib/k8s-bootstrap.control-plane.done
-  log "==== control-plane bootstrap complete $$(date -u +%Y-%m-%dT%H:%M:%SZ) ===="
+  log "==== control-plane bootstrap complete $(date -u +%Y-%m-%dT%H:%M:%SZ) ===="
 }
 
 main "$@"

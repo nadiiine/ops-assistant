@@ -4,11 +4,13 @@
 # then runs kubeadm join. Safe for ASG instance replacement.
 #
 # Terraform interpolations use dollar-brace names (aws_region, etc.).
-# Bash expansions use dollar-dollar-brace so templatefile emits a single dollar.
+# Escape bash parameter expansion with double-dollar-brace so templatefile emits
+# a literal bash variable reference.
+# Normal bash command and arithmetic substitution should stay unescaped.
 set -euo pipefail
 
 exec > >(tee -a /var/log/k8s-bootstrap.log) 2>&1
-echo "==== worker bootstrap start $$(date -u +%Y-%m-%dT%H:%M:%SZ) ===="
+echo "==== worker bootstrap start $(date -u +%Y-%m-%dT%H:%M:%SZ) ===="
 
 readonly AWS_REGION='${aws_region}'
 readonly SSM_JOIN_PARAM='${ssm_join_parameter_name}'
@@ -58,8 +60,10 @@ install_containerd() {
 }
 
 install_kubernetes() {
-  local major_minor
-  major_minor="$$(echo "$${K8S_VERSION}" | cut -d. -f1,2)"
+  # k8s_major_minor is rendered by Terraform templatefile (e.g. "1.31").
+  # Keep the repo version prefix as a Terraform-provided value so the final script
+  # can use normal bash expansion without mixing in command substitution here.
+  local major_minor="${k8s_major_minor}"
 
   install -m 0755 -d /etc/apt/keyrings
   curl -fsSL "https://pkgs.k8s.io/core:/stable:/v$${major_minor}/deb/Release.key" \
@@ -103,7 +107,7 @@ wait_and_join() {
   while (( attempt <= JOIN_MAX_ATTEMPTS )); do
     log "Join attempt $${attempt}/$${JOIN_MAX_ATTEMPTS}: reading SSM parameter"
 
-    if join_cmd="$$(fetch_join_command)" && [[ -n "$${join_cmd}" && "$${join_cmd}" != "None" ]]; then
+    if join_cmd="$(fetch_join_command)" && [[ -n "$${join_cmd}" && "$${join_cmd}" != "None" ]]; then
       log "Retrieved join command from SSM (not logging secret contents)"
       # Join command is produced by kubeadm; run via bash -c (no eval).
       if bash -c "$${join_cmd}"; then
@@ -116,7 +120,7 @@ wait_and_join() {
     fi
 
     sleep "$${JOIN_SLEEP_SECONDS}"
-    attempt=$$((attempt + 1))
+    attempt=$((attempt + 1))
   done
 
   log "ERROR: exhausted join attempts"
@@ -141,7 +145,7 @@ main() {
   install_awscli
   wait_and_join
   touch /var/lib/k8s-bootstrap.worker.done
-  log "==== worker bootstrap complete $$(date -u +%Y-%m-%dT%H:%M:%SZ) ===="
+  log "==== worker bootstrap complete $(date -u +%Y-%m-%dT%H:%M:%SZ) ===="
 }
 
 main "$@"

@@ -2,19 +2,30 @@
 
 ## Status
 
-**Networking + security groups implemented in code; nothing applied to AWS yet.**
-Do not run `terraform apply` until explicitly approved.
+**Phase 2 is deployed and working in AWS.**
+
+Current live shape:
+
+- VPC, two public subnets, IGW, route table
+- one EC2 control-plane node bootstrapped with `kubeadm`
+- one EC2 worker managed by an Auto Scaling Group
+- containerd as the CRI
+- Calico `v3.29.1` in **VXLAN** mode
+- worker join command distributed through SSM Parameter Store
+- local kubeconfig saved at `.kube/aws-dev-config` and gitignored
+- local Python agent + local `npx mcp-server-kubernetes` pointed at the AWS cluster through `KUBECONFIG`
 
 | Area | Status |
 |------|--------|
 | Directory layout / variables / providers | Present |
-| VPC / public subnets / IGW / routes | **Implemented** (not applied yet) |
-| Security groups (control-plane + workers) | **Implemented** (not applied yet) |
-| IAM roles / instance profiles | **Implemented** (not applied yet) |
-| EC2 control-plane + worker LT/ASG | **Implemented** (not applied yet) |
-| kubeadm / Calico VXLAN bootstrap user_data | **Implemented** (not applied yet) |
-| Live `terraform apply` | Pending approval |
-| kubeadm user-data scripts | Placeholders only (`exit 1`) |
+| VPC / public subnets / IGW / routes | **Applied** |
+| Security groups (control-plane + workers) | **Applied** |
+| IAM roles / instance profiles | **Applied** |
+| EC2 control-plane + worker LT/ASG | **Applied** |
+| kubeadm / Calico VXLAN bootstrap user_data | **Applied and working** |
+| Local kubeconfig for AWS cluster | **Created** |
+| Local MCP against AWS kubeconfig | **Working** |
+| Full LLM-driven `agent.py` | Blocked only by OpenAI billing quota |
 | Remote state backend | Pending |
 | Docker / CI / agent container | Out of scope (Phases 3–4) |
 
@@ -34,7 +45,7 @@ Do not run `terraform apply` until explicitly approved.
 ```
 
 - **Terraform** provisions AWS networking, IAM, security groups, and EC2.
-- **kubeadm bootstrap scripts** (later) install the Kubernetes control plane
+- **kubeadm bootstrap scripts** install the Kubernetes control plane
   and join workers on those EC2 instances.
 - The **agent stays local**; MCP stays local via `npx`.
 - **kind** remains the local development cluster (see below).
@@ -49,25 +60,23 @@ Phase 2 deliberately uses self-managed Kubernetes on EC2:
 3. Avoids EKS-specific control plane, addons, and IAM authenticator coupling.
 4. Matches the project decision: managed VMs + manual Kubernetes, not EKS.
 
-## What Terraform will provision (when implemented)
+## What Terraform provisions
 
 - VPC and public subnet(s)
 - Internet Gateway and route tables
 - Security groups (SSH, Kubernetes API `6443`, node communication)
 - IAM roles / instance profiles for EC2 nodes
 - One EC2 **control-plane** instance
-- One or more EC2 **worker** instances (fixed count first; ASG optional later)
+- One or more EC2 **worker** instances via Launch Template + ASG
 
 Terraform will **not** create an EKS cluster.
 
-## What kubeadm / bootstrap will configure (when implemented)
+## What kubeadm / bootstrap configures
 
 | Script | Role |
 |--------|------|
-| `modules/k8s-cluster/scripts/control-plane.sh` | container runtime, kubeadm/kubelet, `kubeadm init`, **Calico VXLAN**, admin kubeconfig |
+| `modules/k8s-cluster/scripts/control-plane.sh` | container runtime, kubeadm/kubelet, `kubeadm init`, **Calico VXLAN**, admin kubeconfig, SSM join publish |
 | `modules/k8s-cluster/scripts/worker.sh` | runtime + kubeadm, `kubeadm join` |
-
-These scripts are **placeholders** today and must not be attached as user-data yet.
 
 ## CNI decision: Calico VXLAN
 
@@ -86,7 +95,9 @@ Security groups no longer allow “all protocols” between nodes for CNI. Overl
 is limited to UDP/4789 via security-group references. Kubernetes control-plane ports
 (API 6443, etcd, kubelet, scheduler, controller-manager) remain as dedicated rules.
 
-Bootstrap scripts will install Calico in VXLAN mode later; they are still placeholders.
+Bootstrap scripts pin Calico and then create a default `BGPConfiguration`
+with `nodeToNodeMeshEnabled: false` so the cluster stays VXLAN-only and
+`calico-node` readiness does not wait for unwanted BGP peerings.
 
 ## Control-plane / worker layout
 
@@ -97,17 +108,30 @@ Bootstrap scripts will install Calico in VXLAN mode later; they are still placeh
 
 ## How the local agent will connect
 
-1. After the cluster is bootstrapped, copy the admin kubeconfig from the
-   control-plane (path TBD: `/etc/kubernetes/admin.conf` or equivalent).
-2. Save it locally as something like `agent/aws-kubeconfig` (**gitignored**).
-3. Point `KUBECONFIG` in `agent/.env` at that file (or export it in the shell).
-4. Run the existing agent unchanged:
+1. Retrieve `/etc/kubernetes/admin.conf` from the control-plane through SSM.
+2. Save it locally as `.kube/aws-dev-config` (**gitignored**).
+3. Set the kubeconfig cluster `server` to the control-plane public API endpoint.
+4. Set `tls-server-name` to the control-plane private IP so TLS verification still succeeds.
+5. Point `KUBECONFIG` in `agent/.env` at that file, or override it per shell/session.
+6. Run the existing agent unchanged:
 
    ```powershell
    agent\.venv\Scripts\python.exe agent\agent.py "list all pods in the cluster"
    ```
 
 MCP continues to spawn `npx mcp-server-kubernetes` with that `KUBECONFIG`.
+
+### Kubeconfig selection
+
+- Default AWS kubeconfig used by the local agent:
+  `.kube/aws-dev-config`
+- `agent/.env` now sets `KUBECONFIG` to that AWS file.
+- To switch back to `kind`, override `KUBECONFIG` for the command you run, for example:
+
+```powershell
+$env:KUBECONFIG = \"C:\\Users\\ASUS\\Downloads\\fursa-project\\agent\\kind-kubeconfig\"
+agent\\.venv\\Scripts\\python.exe agent\\agent.py \"list all pods\"
+```
 
 ## kind remains for local development
 
@@ -143,8 +167,8 @@ infra/
         ├── variables.tf
         ├── outputs.tf
         └── scripts/
-            ├── control-plane.sh  # placeholder (not wired as user_data yet)
-            └── worker.sh         # placeholder (not wired as user_data yet)
+            ├── control-plane.sh  # kubeadm init + Calico VXLAN + SSM join publish
+            └── worker.sh         # kubeadm join via SSM-fetched command
 ```
 
 ## EC2 layout
@@ -164,6 +188,7 @@ control-plane EC2 (user_data)
   → install containerd (SystemdCgroup=true) + kubeadm/kubelet/kubectl
   → kubeadm init (advertise = IMDS private IPv4)
   → apply Calico VXLAN (pinned version)
+  → create default Calico BGPConfiguration with node-to-node mesh disabled
   → kubeadm token create --print-join-command
   → SSM PutParameter SecureString  /ops-assistant/dev/k8s/worker-join-command
   → systemd timer refreshes the parameter every 12h
@@ -211,14 +236,15 @@ S3, autoscaling, or AdministratorAccess. IMDS does not need IAM permissions.
 - **EC2**: 1 control-plane instance + worker launch template/ASG
 - **Bootstrap**: kubeadm init/join user_data, Calico VXLAN, SSM join parameter
 
-**Pending (requires explicit approval)**
+**Pending**
 
-- `terraform apply`
-- Set `allowed_api_cidrs` (laptop /32) so kubectl/agent can reach API :6443
-- Retrieve admin kubeconfig from the control-plane (SSM Session Manager)
 - Remote state backend
 - Staging environment folder
 - Agent/MCP/Docker/CI changes (not Phase 2)
+
+**Known current limitation:** the AWS cluster and local MCP path work, but the
+full `agent.py` conversational flow cannot currently be exercised end-to-end
+because the configured OpenAI account is returning `429 credit_balance_exhausted`.
 
 Optional later hardening (not blocking):
 
