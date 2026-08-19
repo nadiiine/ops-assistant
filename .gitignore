@@ -24,6 +24,7 @@ __pycache__/
 **/.terraform/
 *.tfstate
 *.tfstate.*
+*.tfplan
 crash.log
 crash.*.log
 override.tf
@@ -33,4 +34,16 @@ override.tf.json
 .terraformrc
 terraform.rc
 *.tfvars.local
+
+# Local bootstrap / debug artifacts
+bootstrap-output.txt
+infra/bootstrap-output.txt
+infra/control-plane-verify.txt
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Live Kubernetes secrets (example manifest is tracked)
+k8s/secret.yaml
 

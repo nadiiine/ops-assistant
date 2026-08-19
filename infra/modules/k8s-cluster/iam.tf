@@ -6,9 +6,11 @@
 #
 # Intentionally NOT included:
 #   - AmazonEKS* policies
-#   - ECR pull policies
 #   - cloud-provider-aws / CCM policies
 #   - Broad ssm:GetParametersByPath / ssm:* on all parameters
+#
+# ECR: workers get AmazonEC2ContainerRegistryReadOnly so they can pull
+# ops-assistant images. This does not grant cluster-admin or EKS APIs.
 
 data "aws_caller_identity" "current" {}
 
@@ -126,4 +128,9 @@ resource "aws_iam_role_policy" "workers_join_ssm" {
   name   = "${local.name_prefix}-workers-join-ssm"
   role   = aws_iam_role.workers.id
   policy = data.aws_iam_policy_document.workers_join_ssm.json
+}
+
+resource "aws_iam_role_policy_attachment" "workers_ecr" {
+  role       = aws_iam_role.workers.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }

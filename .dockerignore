@@ -1,0 +1,16 @@
+.git
+**/.env
+!**/.env.example
+**/.venv
+**/__pycache__
+**/.kube
+**/node_modules
+frontend/dist
+infra
+tools
+.github
+*.tfstate
+*.tfstate.*
+*.tfplan
+bootstrap-output.txt
+agent/kind-kubeconfig

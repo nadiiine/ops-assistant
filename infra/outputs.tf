@@ -102,3 +102,13 @@ output "ssm_join_parameter_name" {
   description = "SSM parameter holding the kubeadm join command"
   value       = module.k8s_cluster.ssm_join_parameter_name
 }
+
+output "backend_ecr_repository_url" {
+  description = "ECR repository URL for the backend image"
+  value       = aws_ecr_repository.backend.repository_url
+}
+
+output "frontend_ecr_repository_url" {
+  description = "ECR repository URL for the frontend image"
+  value       = aws_ecr_repository.frontend.repository_url
+}

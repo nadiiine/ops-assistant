@@ -13,7 +13,7 @@ map_public_ip_on_launch = true
 # Example: ["203.0.113.10/32"]  Do NOT use 0.0.0.0/0.
 allowed_ssh_cidrs      = []
 allowed_api_cidrs      = ["79.177.159.83/32"]
-allowed_nodeport_cidrs = []
+allowed_nodeport_cidrs = ["79.177.159.83/32"]
 
 enable_ssm = true
 

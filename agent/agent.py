@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -18,16 +19,36 @@ from guardrails import check_tool_call
 from mcp_client import KubernetesMCPClient
 
 AGENT_DIR = Path(__file__).resolve().parent
-SYSTEM_PROMPT = """You are a Kubernetes operations assistant for a local development cluster.
+SYSTEM_PROMPT = """You are a Kubernetes operations assistant.
 
 Use the available MCP Kubernetes tools to inspect and manage the cluster.
 For read-only questions, prefer kubectl_get, kubectl_describe, and kubectl_logs.
 For scaling deployments, use kubectl_scale with the deployment name, namespace, and replica count.
 
-If a guardrail blocks a tool call, explain the policy refusal clearly to the user.
+Namespace rules for kubectl_get:
+- When the user asks about pods (or any resource) WITHOUT specifying a namespace, always pass
+  allNamespaces: true so that resources across ALL namespaces are returned.
+- When the user explicitly names a namespace (e.g. "in kube-system"), pass that namespace and
+  do NOT set allNamespaces.
+- Never assume the default namespace for a general resource query.
+
+If a kubectl_get call returns an empty list and allNamespaces was true, say
+"There are no <resource> running in the cluster."
+If the call targeted a specific namespace and returned empty, say
+"There are no <resource> in the <namespace> namespace."
+
+If the user asks for a destructive action such as delete, still request the matching MCP tool
+so the guardrail policy can refuse it. Explain the policy refusal clearly afterward.
 When diagnosing failing workloads, inspect pod status/events and report concrete error reasons
 such as ImagePullBackOff, ErrImagePull, or CrashLoopBackOff.
 Be concise and factual."""
+
+
+@dataclass
+class AgentResult:
+    answer: str
+    tools_used: list[str] = field(default_factory=list)
+    blocked_tools: list[str] = field(default_factory=list)
 
 
 def _load_env() -> None:
@@ -48,15 +69,25 @@ def _openai_tools(mcp_tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-async def run_agent(prompt: str) -> str:
+def _resolve_kubeconfig() -> str:
+    kubeconfig = os.environ.get("KUBECONFIG", "")
+    if kubeconfig:
+        return kubeconfig
+    kind_path = AGENT_DIR / "kind-kubeconfig"
+    return str(kind_path) if kind_path.exists() else ""
+
+
+async def run_agent(prompt: str) -> AgentResult:
     _load_env()
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is not set in agent/.env")
+        raise RuntimeError("OPENAI_API_KEY is not set")
 
-    kubeconfig = os.environ.get("KUBECONFIG", str(AGENT_DIR / "kind-kubeconfig"))
+    kubeconfig = _resolve_kubeconfig()
     model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
     client = OpenAI(api_key=api_key)
+    tools_used: list[str] = []
+    blocked_tools: list[str] = []
 
     async with KubernetesMCPClient(kubeconfig=kubeconfig) as mcp:
         tools = await mcp.list_tools()
@@ -93,10 +124,15 @@ async def run_agent(prompt: str) -> str:
             messages.append(assistant_message)
 
             if not message.tool_calls:
-                return (message.content or "").strip()
+                return AgentResult(
+                    answer=(message.content or "").strip(),
+                    tools_used=tools_used,
+                    blocked_tools=blocked_tools,
+                )
 
             for tool_call in message.tool_calls:
                 tool_name = tool_call.function.name
+                tools_used.append(tool_name)
                 try:
                     arguments = json.loads(tool_call.function.arguments or "{}")
                 except json.JSONDecodeError:
@@ -104,6 +140,7 @@ async def run_agent(prompt: str) -> str:
 
                 allowed, reason = check_tool_call(tool_name, arguments)
                 if not allowed:
+                    blocked_tools.append(tool_name)
                     tool_result = reason
                 else:
                     tool_result = await mcp.call_tool(tool_name, arguments)
@@ -116,7 +153,11 @@ async def run_agent(prompt: str) -> str:
                     }
                 )
 
-        return "Agent stopped after maximum tool iterations."
+        return AgentResult(
+            answer="Agent stopped after maximum tool iterations.",
+            tools_used=tools_used,
+            blocked_tools=blocked_tools,
+        )
 
 
 def main() -> int:
@@ -126,7 +167,7 @@ def main() -> int:
 
     try:
         output = asyncio.run(run_agent(args.prompt))
-        print(output)
+        print(output.answer)
         return 0
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)

@@ -1,9 +1,12 @@
-# Phase 1: Local Kubernetes Ops Assistant
+# Agent: Kubernetes Ops Assistant
 
-A local Python agent that talks to a **kind** cluster through the
+A local Python agent that talks to a Kubernetes cluster through the
 [`mcp-server-kubernetes`](https://www.npmjs.com/package/mcp-server-kubernetes) MCP server.
-Phase 1 focuses on read operations plus controlled mutations (scale), with guardrails
-that block destructive actions such as deletes.
+It supports a local **kind** cluster and the Phase 2 **AWS kubeadm** cluster via `KUBECONFIG`.
+Read operations plus controlled mutations (scale) are allowed; guardrails block destructive
+actions such as deletes.
+
+See the repository root `README.md` for the full architecture and AWS usage.
 
 ## Prerequisites
 
@@ -80,7 +83,12 @@ copy agent\.env.example agent\.env
 
 Use UTF-8 **without BOM** on Windows so `python-dotenv` reads `OPENAI_API_KEY` correctly.
 
-Root `.gitignore` excludes `agent/.env`, `agent/kind-kubeconfig`, and `agent/.venv/`.
+Root `.gitignore` excludes `agent/.env`, kubeconfig files, `.kube/`, and `agent/.venv/`.
+
+To use the AWS cluster instead of kind, set `KUBECONFIG` in `agent/.env` to the
+absolute path of `.kube/aws-dev-config` (created from the control-plane admin.conf;
+see the root README). Kind remains available by pointing `KUBECONFIG` at
+`agent/kind-kubeconfig`.
 
 ## Unit tests
 

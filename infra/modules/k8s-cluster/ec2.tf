@@ -38,7 +38,9 @@ locals {
   key_name_effective   = var.key_name != "" ? var.key_name : null
 
   control_plane_user_data = templatefile("${path.module}/scripts/control-plane.sh", local.bootstrap_template_vars)
-  worker_user_data        = templatefile("${path.module}/scripts/worker.sh", local.bootstrap_template_vars)
+  worker_user_data = templatefile("${path.module}/scripts/worker.sh", merge(local.bootstrap_template_vars, {
+    ecr_kubelet_creds_script = file("${path.module}/scripts/install-ecr-kubelet-creds.sh")
+  }))
 }
 
 ################################################################################
@@ -54,8 +56,14 @@ resource "aws_instance" "control_plane" {
   associate_public_ip_address = true
   key_name                    = local.key_name_effective
 
-  user_data                   = local.control_plane_user_data
-  user_data_replace_on_change = true
+  user_data = local.control_plane_user_data
+  # Live cluster is healthy. Do not replace the instance when bootstrap
+  # scripts or the Ubuntu AMI data source change.
+  user_data_replace_on_change = false
+
+  lifecycle {
+    ignore_changes = [ami, user_data]
+  }
 
   metadata_options {
     http_endpoint               = "enabled"
@@ -146,6 +154,7 @@ resource "aws_launch_template" "workers" {
 
   depends_on = [
     aws_iam_role_policy.workers_join_ssm,
+    aws_iam_role_policy_attachment.workers_ecr,
   ]
 }
 

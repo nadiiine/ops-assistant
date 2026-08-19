@@ -25,9 +25,9 @@ Current live shape:
 | kubeadm / Calico VXLAN bootstrap user_data | **Applied and working** |
 | Local kubeconfig for AWS cluster | **Created** |
 | Local MCP against AWS kubeconfig | **Working** |
-| Full LLM-driven `agent.py` | Blocked only by OpenAI billing quota |
+| Full LLM-driven `agent.py` | **Working** (OpenAI API + MCP) |
 | Remote state backend | Pending |
-| Docker / CI / agent container | Out of scope (Phases 3–4) |
+| ECR + in-cluster web app | **Applied** (namespace `ops-assistant`, NodePort 30080) |
 
 ## Architecture
 
@@ -76,7 +76,7 @@ Terraform will **not** create an EKS cluster.
 | Script | Role |
 |--------|------|
 | `modules/k8s-cluster/scripts/control-plane.sh` | container runtime, kubeadm/kubelet, `kubeadm init`, **Calico VXLAN**, admin kubeconfig, SSM join publish |
-| `modules/k8s-cluster/scripts/worker.sh` | runtime + kubeadm, `kubeadm join` |
+| `modules/k8s-cluster/scripts/worker.sh` | runtime + kubeadm, `kubeadm join`, then kubelet ECR credential provider |
 
 ## CNI decision: Calico VXLAN
 

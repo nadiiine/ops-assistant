@@ -25,14 +25,23 @@ class KubernetesMCPClient:
         env = os.environ.copy()
         if self.kubeconfig:
             env["KUBECONFIG"] = self.kubeconfig
+        else:
+            # Empty KUBECONFIG breaks in-cluster ServiceAccount auth.
+            env.pop("KUBECONFIG", None)
 
-        npx_cmd = "npx.cmd" if sys.platform == "win32" else "npx"
-        if sys.platform == "win32" and shutil.which(npx_cmd) is None:
-            npx_cmd = "npx"
+        bundled = shutil.which("mcp-server-kubernetes")
+        if bundled:
+            command = bundled
+            args: list[str] = []
+        else:
+            command = "npx.cmd" if sys.platform == "win32" else "npx"
+            if sys.platform == "win32" and shutil.which(command) is None:
+                command = "npx"
+            args = ["-y", "mcp-server-kubernetes"]
 
         server_params = StdioServerParameters(
-            command=npx_cmd,
-            args=["-y", "mcp-server-kubernetes"],
+            command=command,
+            args=args,
             env=env,
         )
 
@@ -53,11 +62,14 @@ class KubernetesMCPClient:
         result = await self.session.list_tools()
         tools: list[dict[str, Any]] = []
         for tool in result.tools:
+            schema = getattr(tool, "inputSchema", None) or getattr(tool, "input_schema", None)
+            if hasattr(schema, "model_dump"):
+                schema = schema.model_dump()
             tools.append(
                 {
                     "name": tool.name,
                     "description": tool.description or "",
-                    "inputSchema": tool.inputSchema,
+                    "inputSchema": schema or {"type": "object", "properties": {}},
                 }
             )
         return tools

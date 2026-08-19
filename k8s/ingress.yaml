@@ -1,0 +1,19 @@
+# Optional. This cluster has no ingress controller, so NodePort is the supported
+# access path. Apply this only after installing an ingress controller.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: ops-assistant
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

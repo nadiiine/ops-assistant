@@ -100,6 +100,17 @@ fetch_join_command() {
     --output text 2>/dev/null
 }
 
+install_ecr_credential_provider() {
+  # Terraform inserts the canonical installer. Quoted heredoc keeps bash from
+  # expanding the body; templatefile still interpolates ecr_kubelet_creds_script.
+  log "Installing kubelet ECR credential provider"
+  cat >/usr/local/sbin/install-ecr-kubelet-creds.sh <<'ECREOF'
+${ecr_kubelet_creds_script}
+ECREOF
+  chmod +x /usr/local/sbin/install-ecr-kubelet-creds.sh
+  /usr/local/sbin/install-ecr-kubelet-creds.sh
+}
+
 wait_and_join() {
   local attempt=1
   local join_cmd=""
@@ -144,6 +155,7 @@ main() {
   install_kubernetes
   install_awscli
   wait_and_join
+  install_ecr_credential_provider
   touch /var/lib/k8s-bootstrap.worker.done
   log "==== worker bootstrap complete $(date -u +%Y-%m-%dT%H:%M:%SZ) ===="
 }
