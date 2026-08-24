@@ -150,6 +150,9 @@ resource "aws_launch_template" "workers" {
 
   lifecycle {
     create_before_destroy = true
+    # Avoid rewriting worker user_data on CRLF/template drift. Live hop-limit/AMI
+    # changes still apply as new LT versions without replacing the control plane.
+    ignore_changes = [user_data]
   }
 
   depends_on = [

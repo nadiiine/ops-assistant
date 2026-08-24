@@ -47,3 +47,13 @@ frontend/dist/
 # Live Kubernetes secrets (example manifest is tracked)
 k8s/secret.yaml
 
+
+# Terraform plan files
+*.binary
+*.tfplan
+
+# Local/debug files
+refresh-join.json
+ssm-test.json
+worker-check.txt
+worker-tail.json

@@ -98,6 +98,7 @@ From repo root:
 
 ```powershell
 agent\.venv\Scripts\python.exe agent\test_guardrails.py -v
+agent\.venv\Scripts\python.exe -m pytest agent\test_agent_namespace.py agent\test_agent_loop.py agent\test_prometheus_query.py agent\test_observability_config.py -q
 ```
 
 All **7** guardrail tests must pass.
@@ -132,7 +133,8 @@ User prompt → agent.py (Bedrock Converse tool loop)
                  ↓ kubectl → kind cluster (ops-assistant-dev)
 ```
 
-Allowed mutations in Phase 1 include `kubectl_scale`. Blocked tools include
+Allowed mutations in Phase 1 include `kubectl_scale`. Observability uses local
+`prometheus_query` (predefined query types only). Blocked tools include
 `kubectl_delete`, `cleanup_pods`, `kubectl_generic`, and other destructive MCP tools.
 
 ## Known limitations

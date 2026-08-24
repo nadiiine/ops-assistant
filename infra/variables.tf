@@ -141,3 +141,9 @@ variable "join_sleep_seconds" {
   type        = number
   default     = 20
 }
+
+variable "alert_email" {
+  description = "Optional email for SNS alert subscriptions. Empty = create topic only (no subscription)."
+  type        = string
+  default     = ""
+}

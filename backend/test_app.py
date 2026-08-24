@@ -53,3 +53,19 @@ def test_chat_mocked() -> None:
     body = response.json()
     assert "Ready" in body["answer"]
     assert body["tools_used"] == ["kubectl_get"]
+
+
+def test_observability_summary_mocked() -> None:
+    fake = {
+        "status": "healthy",
+        "nodes_ready": 2,
+        "nodes_total": 2,
+        "unhealthy_pods": 0,
+        "recent_alerts": 0,
+    }
+    with patch("main.observability_summary", new=AsyncMock(return_value=fake)):
+        response = client.get("/observability/summary")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "healthy"
+    assert body["nodes_ready"] == 2

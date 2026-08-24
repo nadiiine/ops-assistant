@@ -1,0 +1,39 @@
+# Safe CrashLoop demo — does NOT touch CoreDNS or system components.
+# Apply:
+#   kubectl apply -f k8s/demo/crashloop-demo.yaml
+# Cleanup:
+#   kubectl delete -f k8s/demo/crashloop-demo.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ops-assistant-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crashloop-demo
+  namespace: ops-assistant-demo
+  labels:
+    app: crashloop-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crashloop-demo
+  template:
+    metadata:
+      labels:
+        app: crashloop-demo
+    spec:
+      containers:
+        - name: boom
+          image: busybox:1.36
+          command: ["/bin/sh", "-c", "echo intentional-failure; exit 1"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+      restartPolicy: Always

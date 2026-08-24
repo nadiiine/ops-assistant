@@ -25,7 +25,7 @@ jobs:
         run: python agent/test_guardrails.py -v
 
       - name: Agent and backend tests
-        run: python -m pytest agent/test_agent_namespace.py agent/test_agent_loop.py agent/test_bedrock_smoke.py backend/test_app.py -q
+        run: python -m pytest agent/test_agent_namespace.py agent/test_agent_loop.py agent/test_prometheus_query.py agent/test_observability_config.py agent/test_bedrock_smoke.py backend/test_app.py backend/test_observability.py backend/test_topology.py -q
 
       - uses: actions/setup-node@v4
         with:

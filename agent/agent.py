@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 
 from guardrails import check_tool_call
 from mcp_client import KubernetesMCPClient
+from prometheus_tool import execute_prometheus_query, prometheus_tool_definition
 
 AGENT_DIR = Path(__file__).resolve().parent
 MAX_TOOL_ROUNDS = 5
@@ -40,11 +41,13 @@ _TRANSIENT_ERROR_CODES = frozenset(
 
 logger = logging.getLogger("ops_assistant.agent")
 
-SYSTEM_PROMPT = """You are a Kubernetes operations assistant.
+SYSTEM_PROMPT = """You are a Kubernetes operations and observability assistant.
 
 Use the available MCP Kubernetes tools to inspect and manage the cluster.
 For read-only questions, prefer kubectl_get, kubectl_describe, and kubectl_logs.
 For scaling deployments, use kubectl_scale with the deployment name, namespace, and replica count.
+For metrics questions (CPU, memory, restarts, unavailable replicas), use prometheus_query
+with a predefined query_type only. Never invent free-form PromQL.
 
 Namespace rules for kubectl_get:
 - When the user asks about pods (or any resource) WITHOUT specifying a namespace, always pass
@@ -58,10 +61,28 @@ If a kubectl_get call returns an empty list and allNamespaces was true, say
 If the call targeted a specific namespace and returned empty, say
 "There are no <resource> in the <namespace> namespace."
 
+Cluster health / diagnosis prompts ("analyze health", "why unhealthy", "diagnose workloads"):
+Batch independent reads in the same round when possible:
+1. kubectl_get nodes
+2. kubectl_get pods with allNamespaces: true
+3. kubectl_get events (prefer allNamespaces when useful)
+4. prometheus_query for node_cpu_usage, node_memory_usage, pod_restarts_1h,
+   pods_crashloop, deployment_unavailable_replicas as needed
+5. kubectl_logs only for suspicious/unhealthy pods already identified
+6. Check deployment replica state when relevant
+
+Summarize with:
+- overall cluster health (Healthy / Degraded / Critical)
+- unhealthy nodes/pods
+- likely root cause (use "likely", "possible", or "evidence suggests" unless definitive)
+- evidence used
+- severity
+- recommended next action
+
 If the user asks for a destructive action such as delete, still request the matching MCP tool
 so the guardrail policy can refuse it. Explain the policy refusal clearly afterward.
 When diagnosing failing workloads, inspect pod status/events and report concrete error reasons
-such as ImagePullBackOff, ErrImagePull, or CrashLoopBackOff.
+such as ImagePullBackOff, ErrImagePull, CrashLoopBackOff, or OOMKilled.
 Be concise and factual."""
 
 
@@ -210,6 +231,7 @@ async def run_agent(prompt: str) -> AgentResult:
 
     async with KubernetesMCPClient(kubeconfig=kubeconfig) as mcp:
         tools = await mcp.list_tools()
+        tools.append(prometheus_tool_definition())
         tool_config = _bedrock_tool_config(tools)
         messages: list[dict[str, Any]] = [
             {"role": "user", "content": [{"text": prompt}]},
@@ -257,6 +279,9 @@ async def run_agent(prompt: str) -> AgentResult:
                     blocked_tools.append(tool_name)
                     tool_result = reason
                     status = "error"
+                elif tool_name == "prometheus_query":
+                    tool_result = execute_prometheus_query(arguments)
+                    status = "success"
                 else:
                     tool_result = await mcp.call_tool(tool_name, arguments)
                     status = "success"

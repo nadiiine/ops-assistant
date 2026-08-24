@@ -8,6 +8,7 @@ export default defineConfig({
     proxy: {
       "/health": "http://127.0.0.1:8000",
       "/cluster": "http://127.0.0.1:8000",
+      "/observability": "http://127.0.0.1:8000",
       "/chat": "http://127.0.0.1:8000",
     },
   },

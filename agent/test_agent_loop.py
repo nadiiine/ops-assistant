@@ -236,3 +236,131 @@ def test_run_agent_appends_tool_result_as_user_message() -> None:
     assert tool_result["content"][0]["json"]["result"] == "node-a Ready"
     assert result.answer == "Both nodes are Ready."
     assert result.tools_used == ["kubectl_get"]
+
+
+def test_run_agent_routes_prometheus_query_locally() -> None:
+    first_response = {
+        "stopReason": "tool_use",
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "toolUse": {
+                            "toolUseId": "tooluse_prom",
+                            "name": "prometheus_query",
+                            "input": {"query_type": "pods_crashloop"},
+                        }
+                    }
+                ],
+            }
+        },
+    }
+    second_response = {
+        "stopReason": "end_turn",
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "text": (
+                            "Cluster status: DEGRADED. Evidence suggests a crash-looping pod. "
+                            "Likely cause is a failing container command."
+                        )
+                    }
+                ],
+            }
+        },
+    }
+
+    mock_mcp = AsyncMock()
+    mock_mcp.__aenter__.return_value = mock_mcp
+    mock_mcp.__aexit__.return_value = False
+    mock_mcp.list_tools = AsyncMock(return_value=[])
+    mock_mcp.call_tool = AsyncMock(return_value="should-not-be-called")
+
+    mock_client = MagicMock()
+    mock_client.converse.side_effect = [first_response, second_response]
+
+    with (
+        patch("agent.KubernetesMCPClient", return_value=mock_mcp),
+        patch("agent._bedrock_client", return_value=mock_client),
+        patch(
+            "agent.execute_prometheus_query",
+            return_value='{"ok":true,"query_type":"pods_crashloop","result":[]}',
+        ) as mock_prom,
+        patch.dict(
+            "os.environ",
+            {
+                "LLM_PROVIDER": "bedrock",
+                "AWS_REGION": "us-east-1",
+                "BEDROCK_MODEL": "us.amazon.nova-2-lite-v1:0",
+                "KUBECONFIG": "",
+            },
+            clear=False,
+        ),
+    ):
+        result = asyncio.run(run_agent("Diagnose current workload problems."))
+
+    mock_prom.assert_called_once_with({"query_type": "pods_crashloop"})
+    mock_mcp.call_tool.assert_not_awaited()
+    assert result.tools_used == ["prometheus_query"]
+    assert "likely" in result.answer.lower()
+
+
+def test_run_agent_blocks_delete_before_mcp() -> None:
+    first_response = {
+        "stopReason": "tool_use",
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "toolUse": {
+                            "toolUseId": "tooluse_del",
+                            "name": "kubectl_delete",
+                            "input": {"resourceType": "pods", "name": "x"},
+                        }
+                    }
+                ],
+            }
+        },
+    }
+    second_response = {
+        "stopReason": "end_turn",
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [{"text": "Delete is blocked by guardrails."}],
+            }
+        },
+    }
+
+    mock_mcp = AsyncMock()
+    mock_mcp.__aenter__.return_value = mock_mcp
+    mock_mcp.__aexit__.return_value = False
+    mock_mcp.list_tools = AsyncMock(return_value=[])
+    mock_mcp.call_tool = AsyncMock(return_value="should-not-be-called")
+
+    mock_client = MagicMock()
+    mock_client.converse.side_effect = [first_response, second_response]
+
+    with (
+        patch("agent.KubernetesMCPClient", return_value=mock_mcp),
+        patch("agent._bedrock_client", return_value=mock_client),
+        patch.dict(
+            "os.environ",
+            {
+                "LLM_PROVIDER": "bedrock",
+                "AWS_REGION": "us-east-1",
+                "BEDROCK_MODEL": "us.amazon.nova-2-lite-v1:0",
+                "KUBECONFIG": "",
+            },
+            clear=False,
+        ),
+    ):
+        result = asyncio.run(run_agent("delete the crashy deployment"))
+
+    mock_mcp.call_tool.assert_not_awaited()
+    assert result.blocked_tools == ["kubectl_delete"]
+    assert "blocked" in result.answer.lower()

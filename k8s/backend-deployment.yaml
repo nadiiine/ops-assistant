@@ -39,6 +39,12 @@ spec:
                 configMapKeyRef:
                   name: ops-assistant-config
                   key: BEDROCK_MODEL
+            - name: PROMETHEUS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ops-assistant-config
+                  key: PROMETHEUS_URL
+                  optional: true
           readinessProbe:
             httpGet:
               path: /health

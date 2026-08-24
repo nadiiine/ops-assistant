@@ -215,7 +215,24 @@ Separate roles for control-plane and workers, each with an EC2 instance profile.
 | Role | Trust | Attached policy (default) |
 |------|-------|---------------------------|
 | `ops-assistant-dev-control-plane` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (optional) + **inline** `ssm:PutParameter`/`GetParameter` on join param only |
-| `ops-assistant-dev-workers` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (optional) + **inline** `ssm:GetParameter` on join param only + **inline** Bedrock `InvokeModel`/`InvokeModelWithResponseStream` on Nova 2 Lite |
+| `ops-assistant-dev-workers` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (optional) + **inline** `ssm:GetParameter` on join param only + **inline** Bedrock `InvokeModel`/`InvokeModelWithResponseStream` on Nova 2 Lite + **inline** `sns:Publish` on `ops-assistant-dev-alerts` only |
+
+## SNS alerts (additive)
+
+Root module `sns.tf` creates topic `${project_name}-${environment}-alerts` and optional
+email subscription (`alert_email`; empty = topic only). Output: `sns_alert_topic_arn`.
+
+Apply **only** these targets unless a plan is clean:
+
+```powershell
+cd infra
+..\tools\terraform.exe plan -var-file="environments/dev/terraform.tfvars" `
+  -target=aws_sns_topic.alerts `
+  -target=aws_iam_role_policy.workers_sns_alerts
+```
+
+Do not untargeted-apply if the plan replaces the control plane. Confirm the SNS
+email before expecting Alertmanager mail.
 
 **SSM join parameter:** `/ops-assistant/dev/k8s/worker-join-command` (SecureString at runtime; not created by Terraform, so the token is not stored in TF state).
 

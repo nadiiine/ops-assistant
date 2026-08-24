@@ -1,21 +1,23 @@
-"""Phase 1 guardrail policy for Kubernetes MCP tool calls."""
+"""Phase 1 guardrail policy for Kubernetes MCP and observability tools."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from prometheus_tool import validate_prometheus_query_args
+
 # Read-only and safe mutation tools allowed in Phase 1.
 ALLOWED_TOOLS: frozenset[str] = frozenset(
     {
-       "ping",
-       "kubectl_get",
-       "kubectl_describe",
-       "kubectl_logs",
-       "explain_resource",
-       "list_api_resources",
-       "kubectl_context",
-       "kubectl_scale",
-        
+        "ping",
+        "kubectl_get",
+        "kubectl_describe",
+        "kubectl_logs",
+        "explain_resource",
+        "list_api_resources",
+        "kubectl_context",
+        "kubectl_scale",
+        "prometheus_query",
     }
 )
 
@@ -35,8 +37,6 @@ BLOCKED_TOOLS: frozenset[str] = frozenset(
 
 def check_tool_call(tool_name: str, arguments: dict[str, Any] | None = None) -> tuple[bool, str]:
     """Return (allowed, reason). Blocks destructive MCP tools in Phase 1."""
-    _ = arguments  # reserved for future argument-level checks
-
     if tool_name in BLOCKED_TOOLS:
         return False, (
             f"Tool '{tool_name}' is blocked by Phase 1 guardrail policy. "
@@ -46,7 +46,10 @@ def check_tool_call(tool_name: str, arguments: dict[str, Any] | None = None) -> 
     if tool_name not in ALLOWED_TOOLS:
         return False, (
             f"Tool '{tool_name}' is not in the Phase 1 allowlist. "
-            "Only approved read and scale operations are permitted."
+            "Only approved read, scale, and prometheus_query operations are permitted."
         )
+
+    if tool_name == "prometheus_query":
+        return validate_prometheus_query_args(arguments)
 
     return True, "allowed"

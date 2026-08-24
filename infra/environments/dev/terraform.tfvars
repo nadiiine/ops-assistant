@@ -36,3 +36,7 @@ pod_network_cidr   = "192.168.0.0/16"
 join_token_ttl     = "24h0m0s"
 join_max_attempts  = 36
 join_sleep_seconds = 20
+
+# Optional SNS email subscription (must confirm the AWS confirmation email).
+# Leave empty to create the topic without a subscription.
+alert_email = ""

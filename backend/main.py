@@ -5,11 +5,13 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from service import chat, cluster_status
+from observability import observability_summary
+from topology import ALLOWED_NAMESPACES, observability_topology
 
 app = FastAPI(title="Kubernetes Ops Assistant", version="1.0.0")
 
@@ -40,6 +42,25 @@ async def health() -> dict[str, str]:
 @app.get("/cluster/status")
 async def get_cluster_status() -> dict[str, Any]:
     return await cluster_status()
+
+
+@app.get("/observability/summary")
+async def get_observability_summary() -> dict[str, Any]:
+    return await observability_summary()
+
+
+@app.get("/observability/topology")
+async def get_observability_topology(
+    namespace: str = Query(default="ops-assistant", max_length=64),
+) -> dict[str, Any]:
+    """Read-only cluster topology for the visual dashboard (no Bedrock)."""
+    ns = namespace.strip() or "ops-assistant"
+    if ns not in ALLOWED_NAMESPACES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported namespace filter. Allowed: {', '.join(sorted(ALLOWED_NAMESPACES))}",
+        )
+    return await observability_topology(ns)
 
 
 @app.post("/chat", response_model=ChatResponse)

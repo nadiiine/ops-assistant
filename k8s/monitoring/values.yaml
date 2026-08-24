@@ -1,0 +1,211 @@
+# Modest kube-prometheus-stack values for a 1-worker demo cluster.
+# Install:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+#   helm upgrade --install ops-monitor prometheus-community/kube-prometheus-stack \
+#     -n monitoring -f k8s/monitoring/values.yaml
+#
+# Grafana access (no public NodePort/LB):
+#   kubectl -n monitoring port-forward svc/ops-monitor-grafana 3000:80
+# Default admin password is set below for the demo; change after first login.
+#
+# Prometheus ClusterIP is Helm-truncated:
+#   ops-monitor-kube-prometheu-prometheus.monitoring.svc.cluster.local:9090
+
+fullname: ops-monitor
+
+defaultRules:
+  create: true
+  rules:
+    etcd: false
+    kubeScheduler: false
+    kubeControllerManager: false
+    kubeProxy: false
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    # Use the worker EC2 instance role via IMDS (hop limit 2 already configured).
+    # No static AWS keys.
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: "sns-ops-assistant"
+      group_by: ["alertname", "namespace"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+        - matchers:
+            - severity =~ "warning|critical"
+          receiver: "sns-ops-assistant"
+        - matchers:
+            - alertname = "Watchdog"
+          receiver: "null"
+    receivers:
+      - name: "null"
+      - name: "sns-ops-assistant"
+        sns_configs:
+          - api_url: "https://sns.us-east-1.amazonaws.com"
+            topic_arn: "arn:aws:sns:us-east-1:228281126655:ops-assistant-dev-alerts"
+            sigv4:
+              region: us-east-1
+            subject: "ops-assistant alert: {{ .CommonLabels.alertname }}"
+            message: |
+              Status: {{ .Status }}
+              {{- range .Alerts }}
+              Alert: {{ .Labels.alertname }}
+              Severity: {{ .Labels.severity }}
+              Summary: {{ .Annotations.summary }}
+              Description: {{ .Annotations.description }}
+              {{- end }}
+
+grafana:
+  enabled: true
+  adminPassword: "ops-assistant-demo"
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: false
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 3d
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    storageSpec: {}
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    additionalScrapeConfigs: []
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+# Self-managed kubeadm: these components often lack scrape endpoints / auth.
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+# Custom alert rules (meaningful only; avoid rollout noise).
+additionalPrometheusRulesMap:
+  ops-assistant-alerts:
+    groups:
+      - name: ops-assistant.nodes
+        rules:
+          - alert: NodeNotReady
+            expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Node {{ $labels.node }} is NotReady"
+              description: "Node has been NotReady for more than 5 minutes."
+          - alert: HighNodeCPU
+            expr: |
+              (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.90
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU on {{ $labels.instance }}"
+              description: "Node CPU usage has been above 90% for 10 minutes."
+          - alert: HighNodeMemory
+            expr: |
+              (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.90
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory on {{ $labels.instance }}"
+              description: "Node memory usage has been above 90% for 10 minutes."
+      - name: ops-assistant.workloads
+        rules:
+          - alert: PodCrashLooping
+            expr: |
+              increase(kube_pod_container_status_restarts_total[15m]) > 3
+              and on(namespace,pod) kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} == 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} crash-looping"
+              description: "Container restarts and CrashLoopBackOff detected."
+          - alert: PodHighRestartRate
+            expr: |
+              increase(kube_pod_container_status_restarts_total[1h]) > 5
+              and on(namespace, pod) kube_pod_status_phase{phase="Running"} == 1
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High restart rate for {{ $labels.namespace }}/{{ $labels.pod }}"
+              description: "Container restarted more than 5 times in the last hour."
+          - alert: DeploymentReplicasUnavailable
+            expr: |
+              (
+                kube_deployment_spec_replicas
+                - kube_deployment_status_replicas_available
+              ) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} missing replicas"
+              description: "Available replicas have been below desired for more than 5 minutes."

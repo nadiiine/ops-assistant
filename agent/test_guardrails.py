@@ -45,6 +45,17 @@ class TestGuardrails(unittest.TestCase):
         self.assertFalse(allowed)
         self.assertIn("blocked", reason.lower())
 
+    def test_allows_prometheus_query(self):
+        allowed, reason = check_tool_call("prometheus_query", {"query_type": "top_pod_memory"})
+        self.assertTrue(allowed, reason)
+
+    def test_blocks_prometheus_freeform(self):
+        allowed, reason = check_tool_call(
+            "prometheus_query",
+            {"query_type": "top_pod_cpu", "query": "up"},
+        )
+        self.assertFalse(allowed)
+
 
 if __name__ == "__main__":
     unittest.main()
