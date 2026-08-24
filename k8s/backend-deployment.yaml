@@ -24,16 +24,21 @@ spec:
           ports:
             - containerPort: 8000
           env:
-            - name: OPENAI_MODEL
+            - name: LLM_PROVIDER
               valueFrom:
                 configMapKeyRef:
                   name: ops-assistant-config
-                  key: OPENAI_MODEL
-            - name: OPENAI_API_KEY
+                  key: LLM_PROVIDER
+            - name: AWS_REGION
               valueFrom:
-                secretKeyRef:
-                  name: ops-assistant
-                  key: OPENAI_API_KEY
+                configMapKeyRef:
+                  name: ops-assistant-config
+                  key: AWS_REGION
+            - name: BEDROCK_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: ops-assistant-config
+                  key: BEDROCK_MODEL
           readinessProbe:
             httpGet:
               path: /health

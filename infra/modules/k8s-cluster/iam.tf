@@ -134,3 +134,30 @@ resource "aws_iam_role_policy_attachment" "workers_ecr" {
   role       = aws_iam_role.workers.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
+
+# Minimal Bedrock inference for the in-cluster backend (uses the worker
+# instance profile via the EC2 IMDS credential chain). Nova 2 Lite has no
+# in-region on-demand ID in us-east-1; Converse must use the US geo inference
+# profile, which may invoke the FM in us-east-1 / us-east-2 / us-west-2.
+data "aws_iam_policy_document" "workers_bedrock" {
+  statement {
+    sid    = "BedrockConverseNova2Lite"
+    effect = "Allow"
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+    ]
+    resources = [
+      "arn:aws:bedrock:us-east-1:${data.aws_caller_identity.current.account_id}:inference-profile/us.amazon.nova-2-lite-v1:0",
+      "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0",
+      "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0",
+      "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "workers_bedrock" {
+  name   = "${local.name_prefix}-workers-bedrock"
+  role   = aws_iam_role.workers.id
+  policy = data.aws_iam_policy_document.workers_bedrock.json
+}

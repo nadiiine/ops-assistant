@@ -72,16 +72,18 @@ You should see lines like `Starting Kubernetes MCP server v4.0.9, handling comma
 
 ### 5. Environment file
 
-Copy the example and set your OpenAI key (do not commit `.env`):
+Copy the example and configure Bedrock (do not commit `.env`):
 
 ```powershell
 copy agent\.env.example agent\.env
 # Edit agent\.env:
-#   OPENAI_API_KEY=<your key>
+#   LLM_PROVIDER=bedrock
+#   AWS_REGION=us-east-1
+#   BEDROCK_MODEL=amazon.nova-2-lite-v1:0
 #   KUBECONFIG=<absolute path to agent\kind-kubeconfig>
 ```
 
-Use UTF-8 **without BOM** on Windows so `python-dotenv` reads `OPENAI_API_KEY` correctly.
+Use UTF-8 **without BOM** on Windows. AWS credentials come from the default chain (profile / env / instance role), not an API key.
 
 Root `.gitignore` excludes `agent/.env`, kubeconfig files, `.kube/`, and `agent/.venv/`.
 
@@ -124,7 +126,7 @@ kubectl get deployment crashy
 ## Architecture (Phase 1)
 
 ```
-User prompt → agent.py (OpenAI tool loop)
+User prompt → agent.py (Bedrock Converse tool loop)
                  ↓ guardrails.py (allow/deny MCP tools)
                  ↓ mcp_client.py (stdio → npx mcp-server-kubernetes)
                  ↓ kubectl → kind cluster (ops-assistant-dev)

@@ -1,4 +1,4 @@
-"""Backend API tests that do not call OpenAI or Kubernetes."""
+"""Backend API tests that do not call Bedrock or Kubernetes."""
 
 from __future__ import annotations
 

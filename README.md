@@ -4,7 +4,7 @@ A usable Kubernetes operations assistant. You ask questions in natural language;
 
 This repository includes:
 
-- a Python agent with OpenAI + MCP (`agent/`)
+- a Python agent with Amazon Bedrock + MCP (`agent/`)
 - a FastAPI backend (`backend/`)
 - a simple React + Vite frontend (`frontend/`)
 - a self-managed AWS kubeadm cluster (`infra/`, not EKS)
@@ -20,7 +20,7 @@ Operators can ask questions such as “show me the nodes” or “why is this po
 Browser
   → Frontend (nginx)
     → FastAPI backend
-      → OpenAI agent (agent/agent.py)
+      → Bedrock agent (agent/agent.py)
         → Guardrails (agent/guardrails.py)
           → KubernetesMCPClient (agent/mcp_client.py)
             → mcp-server-kubernetes
@@ -57,12 +57,15 @@ Blocked examples: `kubectl_delete`, `cleanup`, `cleanup_pods`, `kubectl_generic`
 Copy `agent/.env.example` to `agent/.env` (gitignored). Do not commit it.
 
 ```text
-OPENAI_API_KEY=your-openai-api-key-here
+LLM_PROVIDER=bedrock
+AWS_REGION=us-east-1
+BEDROCK_MODEL=us.amazon.nova-2-lite-v1:0
 KUBECONFIG=C:\absolute\path\to\.kube\aws-dev-config
-OPENAI_MODEL=gpt-4o-mini
 ```
 
-Save the file as UTF-8 **without BOM**. ChatGPT Plus is not API billing; the key needs prepaid OpenAI API credits.
+Save the file as UTF-8 **without BOM**. Bedrock uses the default AWS credential chain (local profile / instance role). No Bedrock API key is used.
+
+Nova 2 Lite in `us-east-1` requires the US geo inference profile ID (`us.amazon.nova-2-lite-v1:0`); the bare foundation model ID is not supported for on-demand Converse.
 
 ### KUBECONFIG
 
@@ -104,7 +107,7 @@ Vite proxies `/health`, `/cluster`, and `/chat` to `http://127.0.0.1:8000`. Open
 
 ## Docker
 
-Build from the repository root. Do **not** bake `OPENAI_API_KEY` into an image.
+Build from the repository root. Do **not** bake AWS credentials into an image.
 
 ```powershell
 docker build -f backend/Dockerfile -t ops-assistant-backend:local .
@@ -154,7 +157,7 @@ $env:KUBECONFIG = (Resolve-Path .kube\aws-dev-config).Path
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/rbac.yaml
 kubectl apply -f k8s/configmap.yaml
-kubectl -n ops-assistant create secret generic ops-assistant --from-literal=OPENAI_API_KEY="$env:OPENAI_API_KEY"
+# Bedrock uses the worker instance IAM role; no LLM API-key secret is required.
 kubectl apply -f k8s/backend-deployment.yaml
 kubectl apply -f k8s/backend-service.yaml
 kubectl apply -f k8s/frontend-deployment.yaml
@@ -183,7 +186,7 @@ kubeadm kubelet does not use the instance IAM role for ECR by default. Workers h
 
 ```powershell
 agent\.venv\Scripts\python.exe agent\test_guardrails.py -v
-agent\.venv\Scripts\python.exe -m pytest backend\test_app.py -q
+agent\.venv\Scripts\python.exe -m pytest agent\test_agent_namespace.py agent\test_agent_loop.py agent\test_bedrock_smoke.py backend\test_app.py -q
 cd frontend; npm run build
 ```
 

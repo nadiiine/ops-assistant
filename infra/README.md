@@ -215,7 +215,7 @@ Separate roles for control-plane and workers, each with an EC2 instance profile.
 | Role | Trust | Attached policy (default) |
 |------|-------|---------------------------|
 | `ops-assistant-dev-control-plane` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (optional) + **inline** `ssm:PutParameter`/`GetParameter` on join param only |
-| `ops-assistant-dev-workers` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (optional) + **inline** `ssm:GetParameter` on join param only |
+| `ops-assistant-dev-workers` | `ec2.amazonaws.com` | `AmazonSSMManagedInstanceCore` (optional) + **inline** `ssm:GetParameter` on join param only + **inline** Bedrock `InvokeModel`/`InvokeModelWithResponseStream` on Nova 2 Lite |
 
 **SSM join parameter:** `/ops-assistant/dev/k8s/worker-join-command` (SecureString at runtime; not created by Terraform, so the token is not stored in TF state).
 
